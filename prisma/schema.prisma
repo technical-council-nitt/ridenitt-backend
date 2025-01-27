@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum RideStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model User {
+  id          String  @id @default(cuid())
+  phoneNumber String  @unique
+  name        String?
+  gender      Gender?
+  address     String?
+
+  Ride Ride[]
+}
+
+model Ride {
+  id            String     @id @default(cuid())
+  ownerId       String
+  status        RideStatus @default(PENDING)
+  departureTime DateTime
+  peopleCount   Int
+  femaleCount   Int
+  groupId       String?
+
+  owner       User     @relation(fields: [ownerId], references: [id])
+  stops       Stop[]
+  sentInvites Invite[] @relation(name: "sent_invs")
+  recvInvites Invite[] @relation(name: "recv_invs")
+  Group       Group?   @relation(fields: [groupId], references: [id])
+}
+
+model Invite {
+  id             String       @id @default(cuid())
+  senderRideId   String
+  receiverRideId String
+  status         InviteStatus @default(PENDING)
+  declineReason  String?
+
+  senderRide   Ride @relation(name: "sent_invs", fields: [senderRideId], references: [id])
+  receiverRide Ride @relation(name: "recv_invs", fields: [receiverRideId], references: [id])
+}
+
+model Group {
+  id   String  @id @default(cuid())
+  name String?
+
+  Ride Ride[]
+}
+
+model Route {
+  id       String @id @default(cuid())
+  distance Float
+  duration Float
+  groupId  String
+  solution Json // Graphhopper Vrp Solution
+}
+
+model Stop {
+  id   String  @id @default(cuid())
+  lat  Float
+  lon  Float
+  name String?
+
+  rideId String
+  ride   Ride   @relation(fields: [rideId], references: [id])
+}
