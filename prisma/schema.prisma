@@ -14,6 +14,7 @@ enum Gender {
 
 enum RideStatus {
   PENDING
+  FULL
   COMPLETED
   CANCELLED
 }
@@ -31,49 +32,35 @@ model User {
   gender      Gender?
   address     String?
 
-  Ride Ride[]
+  rides       Ride[]
+  sentInvites Invite[] @relation(name: "sent_invs")
 }
 
 model Ride {
-  id            String     @id @default(cuid())
-  ownerId       String
-  status        RideStatus @default(PENDING)
-  departureTime DateTime
-  peopleCount   Int
-  femaleCount   Int
-  groupId       String?
+  id                String     @id @default(cuid())
+  createdAt         DateTime   @default(now())
+  status            RideStatus @default(PENDING)
+  capacity          Int
+  carModel          String
+  ownerId           String
+  earliestDeparture DateTime
+  latestDeparture   DateTime
+  groupId           String?
 
-  owner       User     @relation(fields: [ownerId], references: [id])
-  stops       Stop[]
-  sentInvites Invite[] @relation(name: "sent_invs")
-  recvInvites Invite[] @relation(name: "recv_invs")
-  Group       Group?   @relation(fields: [groupId], references: [id])
+  owner           User     @relation(fields: [ownerId], references: [id])
+  stops           Stop[]
+  receivedInvites Invite[]
 }
 
 model Invite {
   id             String       @id @default(cuid())
-  senderRideId   String
+  senderId       String
   receiverRideId String
   status         InviteStatus @default(PENDING)
   declineReason  String?
 
-  senderRide   Ride @relation(name: "sent_invs", fields: [senderRideId], references: [id])
-  receiverRide Ride @relation(name: "recv_invs", fields: [receiverRideId], references: [id])
-}
-
-model Group {
-  id   String  @id @default(cuid())
-  name String?
-
-  Ride Ride[]
-}
-
-model Route {
-  id       String @id @default(cuid())
-  distance Float
-  duration Float
-  groupId  String
-  solution Json // Graphhopper Vrp Solution
+  sender       User @relation(name: "sent_invs", fields: [senderId], references: [id])
+  receiverRide Ride @relation(fields: [receiverRideId], references: [id])
 }
 
 model Stop {
