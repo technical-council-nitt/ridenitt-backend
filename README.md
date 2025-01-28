@@ -21,7 +21,7 @@ Please checkout `prisma/schema.prisma`
 
 `/api/ride/current`
 
--   GET returns current ride and current group details
+-   GET returns current ride and current accepted invites details
 -   DELETE changes status of current ride to CANCELLED and cancelling all invites and notifiying all accepted invites
 
 `/api/suggestions` GET returns ride suggestions (according to filter queries)
@@ -32,7 +32,6 @@ Please checkout `prisma/schema.prisma`
 
 `/api/invites/:id/decline` POST reject an invite
 
-`/api/invites/:id/remove` POST reject an invite after accepting it, provided a reason
 
 After a ride (user) accepts an invite, the group.rides is an array of all rides.
 

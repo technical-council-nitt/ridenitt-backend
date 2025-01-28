@@ -12,6 +12,17 @@ enum Gender {
   FEMALE
 }
 
+enum Vehicle {
+  CAR
+  AUTO
+  TAXI
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+}
+
 enum RideStatus {
   PENDING
   FULL
@@ -32,20 +43,27 @@ model User {
   gender      Gender?
   address     String?
 
-  rides       Ride[]
-  sentInvites Invite[] @relation(name: "sent_invs")
+  rides         Ride[]
+  sentInvites   Invite[]       @relation(name: "sent_invs")
+  notifications Notification[]
+}
+
+model Otp {
+  id          String   @id @default(cuid())
+  phoneNumber String   @unique
+  code        String   @unique
+  createdAt   DateTime @default(now())
 }
 
 model Ride {
   id                String     @id @default(cuid())
   createdAt         DateTime   @default(now())
   status            RideStatus @default(PENDING)
+  vehicleType       Vehicle
   capacity          Int
-  carModel          String
   ownerId           String
   earliestDeparture DateTime
   latestDeparture   DateTime
-  groupId           String?
 
   owner           User     @relation(fields: [ownerId], references: [id])
   stops           Stop[]
@@ -71,4 +89,14 @@ model Stop {
 
   rideId String
   ride   Ride   @relation(fields: [rideId], references: [id])
+}
+
+model Notification {
+  id         String             @id @default(cuid())
+  createdAt  DateTime           @default(now())
+  receiverId String
+  message    String
+  status     NotificationStatus @default(UNREAD)
+
+  receiver User @relation(fields: [receiverId], references: [id])
 }
