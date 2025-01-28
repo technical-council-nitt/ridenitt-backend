@@ -4,7 +4,7 @@ import { createAccessToken, createRefreshToken } from '../services/auth.service'
 
 export const sendOtp = async (req: Request, res: Response) => {
   const phoneNumber = req.body
-  
+
   if (!phoneNumber || !/^\+91\d{10}$/.test(phoneNumber)) {
     res.status(400).json({
       data: null,
@@ -16,23 +16,21 @@ export const sendOtp = async (req: Request, res: Response) => {
 
   const otp = Math.floor(100000 + Math.random() * 900000);
 
-  let ok = false
-
-  while (!ok) {
-    try {
-      await prisma.otp.create({
-        data: {
-          phoneNumber,
-          code: otp.toString()
-        }
-      });
-
-      ok = true;
-    } catch (e) {
-      console.log(e);
+  await prisma.otp.upsert({
+    where: {
+      phoneNumber
+    },
+    create: {
+      code: otp.toString(),
+      phoneNumber,
+      createdAt: new Date()
+    },
+    update: {
+      code: otp.toString(),
+      createdAt: new Date()
     }
-  }
-  
+  });
+
   res.json({
     data: null,
     error: null
@@ -52,6 +50,13 @@ export const verifyOtp = async (req: Request, res: Response) => {
     res.status(404).json({
       data: null,
       error: 'Wrong OTP'
+    })
+
+    return
+  } else if (otp.createdAt.getTime() + 5 * 60 * 1000 < Date.now()) {
+    res.status(404).json({
+      data: null,
+      error: 'OTP expired'
     })
 
     return
