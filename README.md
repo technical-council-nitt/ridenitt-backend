@@ -1,38 +1,51 @@
-# RideNITT TC
+# Ride NITT TC API
 
-Please checkout `prisma/schema.prisma`
+All responses are of the format `{ data: any | null, error: string | null }`. If you dont get this kind of response, it's probably an error, so dm me. (this is meant for SPAM team)
 
-# API Endpoints
+`/auth/send-otp`
 
-`/auth/send-otp` POST user enters phone number
+POST with json body `{ phoneNumber }` in the format `+91\d{10}`
 
-`/auth/verify-otp` POST user enters otp and jwt is attached as cookie (web app right)
+`/auth/verify-otp`
 
-`/api/autocomplete` Give `?q=Main`, it gives Graphhopper geocoding results like Main Gate NIT Trichy. The lat, lon of this result (both pickup and drop) is to be posted when creating a new ride.
+POST with json body `{ phoneNumber, otp }` both string
 
-`/api/user`
+(below routes available only after otp verification i.e after auth)
 
--   POST update user details
--   GET get user details
+`/api/users/me`
 
-`/api/ride`
+GET returns user profile
 
--   POST create a new ride for the user (inputs, departureTime, peopleCount, femaleCount, stops {lat, lon, name})
+POST with json body `{ name, gender, address }` all string, update the profile
 
-`/api/ride/current`
+`/api/rides`
 
--   GET returns current ride and current accepted invites details
--   DELETE changes status of current ride to CANCELLED and cancelling all invites and notifiying all accepted invites
+GET returns all user rides offering
 
-`/api/suggestions` GET returns ride suggestions (according to filter queries)
+POST with json body `{ stops: { lat, lon, name }[], earliestDeparture: Unix epoch, latestDeparture: Unix epoch, capacity: number, vehicleType: car | taxi | auto }` creates a ride offering
 
-`/api/invites/send` POST send an invite, the sender agrees to share contact
+`/api/rides/current`
 
-`/api/invites/:id/accept` POST accept an invite, contact details is revealed
+GET returns current ride object (check prisma type)
 
-`/api/invites/:id/decline` POST reject an invite
+DELETE cancels current ride offering
 
+`/api/suggestions`
 
-After a ride (user) accepts an invite, the group.rides is an array of all rides.
+GET returns all ride offerings that user can send join request to
 
-So Graphhopper Vrp solved can be used.
+`/api/invites` 
+
+GET returns all incoming invites to the current ride offering
+
+`/api/invites/send` 
+
+POST with json body `{ rideId }` to send an invite
+
+`/api/invites/:id/accept`
+
+POST to accept an invite
+
+`/api/invites/:id/decline` 
+
+POST with json body `{ reason }` to decline an invite or remove after accepting an in
