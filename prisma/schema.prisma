@@ -51,13 +51,6 @@ model User {
   notifications Notification[]
 }
 
-model Otp {
-  id          String   @id @default(cuid())
-  phoneNumber String   @unique
-  code        String
-  createdAt   DateTime @default(now())
-}
-
 model Ride {
   id                String     @id @default(cuid())
   createdAt         DateTime   @default(now())

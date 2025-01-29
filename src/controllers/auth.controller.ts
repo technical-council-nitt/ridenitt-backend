@@ -1,6 +1,11 @@
 import { Request, Response } from 'express';
 import { prisma } from '../prisma';
 import { createAccessToken, createRefreshToken } from '../services/auth.service';
+import twilio from "twilio"
+
+const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!, {
+  logLevel: process.env.NODE_ENV === 'production' ? undefined : 'debug'
+});
 
 export const sendOtp = async (req: Request, res: Response) => {
   const { phoneNumber } = req.body
@@ -14,50 +19,57 @@ export const sendOtp = async (req: Request, res: Response) => {
     return;
   }
 
-  const otp = "000000";
-  // const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  try {
+    const status = await twilioClient.verify.v2
+      .services(process.env.TWILIO_SERVICE_SID!)
+      .verifications
+      .create({
+        to: phoneNumber,
+        channel: "sms"
+      })
 
-  await prisma.otp.upsert({
-    where: {
-      phoneNumber
-    },
-    create: {
-      code: otp,
-      phoneNumber,
-      createdAt: new Date()
-    },
-    update: {
-      code: otp,
-      createdAt: new Date()
-    }
-  });
+    console.log(status)
 
-  res.json({
-    data: null,
-    error: null
-  })
+    res.json({
+      data: null,
+      error: null
+    })
+  } catch (e) {
+    console.error(e);
+
+    res.status(500).json({
+      data: null,
+      error: 'Failed to send OTP'
+    })
+  }
 }
 
 export const verifyOtp = async (req: Request, res: Response) => {
   const { phoneNumber, otp: givenOtp } = req.body;
 
-  const otp = await prisma.otp.findUnique({
-    where: {
-      phoneNumber
-    }
-  })
+  if (!phoneNumber || !/^\+91\d{10}$/.test(phoneNumber) || !givenOtp || givenOtp.length !== 6) {
+    res.status(400).json({
+      data: null,
+      error: 'Invalid body'
+    });
 
-  if (!otp || otp.code !== givenOtp) {
+    return;
+  }
+
+  const verificationCheck = await twilioClient.verify.v2
+    .services(process.env.TWILIO_SERVICE_SID!)
+    .verificationChecks
+    .create({
+      to: phoneNumber,
+      code: givenOtp
+    })
+
+  console.log(verificationCheck)
+
+  if (verificationCheck.status !== 'approved') {
     res.status(404).json({
       data: null,
       error: 'Wrong OTP'
-    })
-
-    return
-  } else if (otp.createdAt.getTime() + 5 * 60 * 1000 < Date.now()) {
-    res.status(404).json({
-      data: null,
-      error: 'OTP expired'
     })
 
     return
