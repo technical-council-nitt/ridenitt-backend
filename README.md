@@ -37,3 +37,6 @@ POST to accept an invite
 
 ## `/api/invites/:id/decline`
 POST with json body `{ reason }` to decline an invite or remove after accepting an in
+
+## `/api/notifications`
+GET returns latest notifications of the user such as if the ride offerer cancels the ride

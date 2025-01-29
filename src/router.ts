@@ -7,6 +7,7 @@ import invitesRouter from "./routes/invites.route";
 import { loggerMiddleware } from "./middlewares/logger.middleware";
 import suggestionsRouter from "./routes/suggestions.route";
 import geocodingRouter from "./routes/geocoding.routes";
+import notifsRouter from "./routes/notifications.controller";
 
 const router = Router()
 
@@ -22,12 +23,14 @@ router.use(authMiddleware)
 
 router.use("/api/users", usersRouter)
 
+router.use("/api/autocomplete", geocodingRouter)
+
 router.use("/api/rides", ridesRouter)
 
 router.use("/api/invites", invitesRouter)
 
 router.use("/api/suggestions", suggestionsRouter)
 
-router.use("/api/autocomplete", geocodingRouter)
+router.use("/api/notifications", notifsRouter)
 
 export default router;

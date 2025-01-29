@@ -5,10 +5,12 @@ import { config } from "dotenv";
 import cookieParser from "cookie-parser";
 import router from "./router";
 
-config()
+config({
+  path: ".env.local"
+})
 
-const app = express();
-const port = process.env.PORT ?? 3000;
+const app = express()
+const port = process.env.PORT ?? 3000
 
 app.use(helmet())
 app.use(cors())
