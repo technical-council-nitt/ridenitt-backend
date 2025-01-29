@@ -3,7 +3,7 @@ import { prisma } from '../prisma';
 import { createAccessToken, createRefreshToken } from '../services/auth.service';
 
 export const sendOtp = async (req: Request, res: Response) => {
-  const phoneNumber = req.body
+  const { phoneNumber } = req.body
 
   if (!phoneNumber || !/^\+91\d{10}$/.test(phoneNumber)) {
     res.status(400).json({
@@ -14,19 +14,20 @@ export const sendOtp = async (req: Request, res: Response) => {
     return;
   }
 
-  const otp = Math.floor(100000 + Math.random() * 900000);
+  const otp = "000000";
+  // const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
   await prisma.otp.upsert({
     where: {
       phoneNumber
     },
     create: {
-      code: otp.toString(),
+      code: otp,
       phoneNumber,
       createdAt: new Date()
     },
     update: {
-      code: otp.toString(),
+      code: otp,
       createdAt: new Date()
     }
   });

@@ -37,13 +37,16 @@ enum InviteStatus {
 }
 
 model User {
-  id          String  @id @default(cuid())
-  phoneNumber String  @unique
-  name        String?
-  gender      Gender?
-  address     String?
+  id            String  @id @default(cuid())
+  phoneNumber   String  @unique
+  name          String?
+  gender        Gender?
+  address       String?
+  password      String?
+  currentRideId String?
+  currentRide   Ride?   @relation(name: "current_ride", fields: [currentRideId], references: [id])
 
-  rides         Ride[]
+  rides         Ride[]         @relation(name: "all_rides")
   sentInvites   Invite[]       @relation(name: "sent_invs")
   notifications Notification[]
 }
@@ -60,12 +63,15 @@ model Ride {
   createdAt         DateTime   @default(now())
   status            RideStatus @default(PENDING)
   vehicleType       Vehicle
+  peopleCount       Int
+  femaleCount       Int
   capacity          Int
   ownerId           String
   earliestDeparture DateTime
   latestDeparture   DateTime
 
-  owner           User     @relation(fields: [ownerId], references: [id])
+  owner           User     @relation(name: "all_rides", fields: [ownerId], references: [id])
+  participants    User[]   @relation(name: "current_ride")
   stops           Stop[]
   receivedInvites Invite[]
 }

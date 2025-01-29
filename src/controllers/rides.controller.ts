@@ -4,23 +4,28 @@ import { InviteStatus, RideStatus } from '@prisma/client';
 
 export const getCurrentRide = async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const rideId = req.params.rideId;
 
   const ride = await prisma.ride.findFirst({
     where: {
-      id: rideId,
-      ownerId: userId,
+      participants: {
+        some: {
+          id: userId
+        }
+      },
       status: RideStatus.PENDING
     },
     include: {
-      receivedInvites: {
-        include: {
-          sender: {
-            select: {
-              id: true,
-              name: true
-            }
-          }
+      owner: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
+      participants: {
+        select: {
+          id: true,
+          name: true,
+          phoneNumber: true
         }
       },
       stops: true
@@ -75,6 +80,8 @@ export const createRide = async (req: Request, res: Response) => {
 
   const {
     stops,
+    peopleCount,
+    femaleCount,
     capacity,
     earliestDeparture,
     vehicleType,
@@ -82,32 +89,42 @@ export const createRide = async (req: Request, res: Response) => {
   } = req.body;
 
   if (!Array.isArray(stops)) {
-    res.status(400).json({ error: 'Stops must be an array' });
+    res.status(400).json({ data: null, error: 'Stops must be an array' });
+    return
+  }
+
+  if (typeof peopleCount !== 'number') {
+    res.status(400).json({ data: null, error: 'People count must be a number' });
+    return
+  }
+
+  if (typeof femaleCount !== 'number') {
+    res.status(400).json({ data: null, error: 'Female count must be a number' });
     return
   }
 
   if (typeof capacity !== 'number') {
-    res.status(400).json({ error: 'Capacity must be a number' });
+    res.status(400).json({ data: null, error: 'Capacity must be a number' });
     return
   }
 
   if (typeof earliestDeparture !== 'number' || isNaN(new Date(earliestDeparture).getTime())) {
-    res.status(400).json({ error: 'Earliest departure must be a valid date' });
+    res.status(400).json({ data: null, error: 'Earliest departure must be a valid date' });
     return
   }
 
   if (typeof latestDeparture !== 'number' || isNaN(new Date(latestDeparture).getTime())) {
-    res.status(400).json({ error: 'Latest departure must be a valid date' });
+    res.status(400).json({ data: null, error: 'Latest departure must be a valid date' });
     return
   }
 
   if (new Date(earliestDeparture).getTime() > new Date(latestDeparture).getTime()) {
-    res.status(400).json({ error: 'Earliest departure must be before latest departure' });
+    res.status(400).json({ data: null, error: 'Earliest departure must be before latest departure' });
     return
   }
 
   if (stops.length < 2) {
-    res.status(400).json({ error: 'Ride must have at least two stops' });
+    res.status(400).json({ data: null, error: 'Ride must have at least two stops' });
     return
   }
 
@@ -123,13 +140,20 @@ export const createRide = async (req: Request, res: Response) => {
       data: null,
       error: 'You already have an active ride'
     })
-    
+
     return
   }
 
   const ride = await prisma.ride.create({
     data: {
       ownerId: userId,
+      participants: {
+        connect: {
+          id: userId
+        }
+      },
+      peopleCount,
+      femaleCount,
       capacity,
       earliestDeparture: new Date(earliestDeparture),
       latestDeparture: new Date(latestDeparture),
@@ -158,12 +182,12 @@ export const cancelRide = async (req: Request, res: Response) => {
   const reason = req.body.reason;
 
   if (typeof reason !== 'string') {
-    res.status(400).json({ error: 'Reason must be a string' });
+    res.status(400).json({ data: null, error: 'Reason must be a string' });
     return
   }
-  
+
   if (reason.length < 10) {
-    res.status(400).json({ error: 'Reason must be at least 10 characters' });
+    res.status(400).json({ data: null, error: 'Reason must be at least 10 characters' });
     return
   }
 
@@ -191,18 +215,31 @@ export const cancelRide = async (req: Request, res: Response) => {
         }
       },
       data: {
+        declineReason: 'Ride cancelled',
         status: InviteStatus.DECLINED
       },
       select: {
-        senderId: true
+        senderId: true,
+        status: true
       }
     })
 
     await tx.notification.createMany({
       data: pendingOrAcceptedInvites.map(invite => ({
         receiverId: invite.senderId,
-        message: `${ride.owner.name} cancelled the current ride. Reason: ${reason}`,
+        message: `${ride.owner.name} cancelled the ride. Reason: ${reason}`,
       }))
+    })
+
+    await tx.user.updateMany({
+      where: {
+        id: {
+          in: pendingOrAcceptedInvites.filter(inv => inv.status === InviteStatus.ACCEPTED).map(invite => invite.senderId)
+        }
+      },
+      data: {
+        currentRideId: null
+      }
     })
 
     await prisma.ride.update({

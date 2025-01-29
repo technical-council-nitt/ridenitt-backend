@@ -65,6 +65,21 @@ export const sendInvite = async (req: Request, res: Response) => {
 
   const { rideId: receiverRideId } = req.body;
 
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId
+    }
+  })
+
+  if (!user || user.currentRideId !== null) {
+    res.status(400).json({
+      data: null,
+      error: 'You already joined a ride'
+    });
+
+    return;
+  }
+
   if (!receiverRideId) {
     res.status(400).json({
       data: null,
@@ -126,6 +141,14 @@ export const acceptInvite = async (req: Request, res: Response) => {
   const invite = await prisma.invite.findFirst({
     where: {
       id: inviteId
+    },
+    include: {
+      sender: {
+        select: {
+          id: true,
+          currentRideId: true
+        }
+      }
     }
   })
 
@@ -133,6 +156,13 @@ export const acceptInvite = async (req: Request, res: Response) => {
     res.status(400).json({
       data: null,
       error: 'Invite not found'
+    });
+
+    return;
+  } else if (invite.sender.currentRideId !== null) {
+    res.status(400).json({
+      data: null,
+      error: 'User already joined in a ride'
     });
 
     return;
@@ -174,13 +204,33 @@ export const acceptInvite = async (req: Request, res: Response) => {
     return;
   }
 
-  await prisma.invite.update({
-    where: {
-      id: inviteId
-    },
-    data: {
-      status: InviteStatus.ACCEPTED
-    }
+  await prisma.$transaction(async tx => {
+    await tx.invite.updateMany({
+      where: {
+        senderId: invite.senderId,
+      },
+      data: {
+        status: InviteStatus.DECLINED
+      }
+    })
+
+    await tx.invite.update({
+      where: {
+        id: invite.id
+      },
+      data: {
+        status: InviteStatus.ACCEPTED
+      }
+    })
+
+    await tx.user.update({
+      where: {
+        id: invite.senderId
+      },
+      data: {
+        currentRideId: invite.receiverRideId
+      }
+    })
   })
 
   res.json({
@@ -267,14 +317,27 @@ export const declineInvite = async (req: Request, res: Response) => {
     return;
   }
 
-  await prisma.invite.update({
-    where: {
-      id: inviteId
-    },
-    data: {
-      declineReason: reason,
-      status: InviteStatus.DECLINED
-    }
+  await prisma.$transaction(async tx => {
+    await tx.invite.update({
+      where: {
+        id: invite.id
+      },
+      data: {
+        declineReason: reason,
+        status: InviteStatus.DECLINED
+      }
+    })
+
+    //if the ride owner is removing the user from the ride, then remove the currentRideId from the user 
+    await tx.user.update({
+      where: {
+        id: invite.senderId,
+        currentRideId: invite.receiverRideId
+      },
+      data: {
+        currentRideId: null
+      }
+    })
   })
 
   res.json({
