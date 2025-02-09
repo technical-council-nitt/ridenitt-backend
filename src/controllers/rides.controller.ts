@@ -81,7 +81,6 @@ export const createRide = async (req: Request, res: Response) => {
   const {
     stops,
     peopleCount,
-    femaleCount,
     capacity,
     earliestDeparture,
     vehicleType,
@@ -95,11 +94,6 @@ export const createRide = async (req: Request, res: Response) => {
 
   if (typeof peopleCount !== 'number') {
     res.status(400).json({ data: null, error: 'People count must be a number' });
-    return
-  }
-
-  if (typeof femaleCount !== 'number') {
-    res.status(400).json({ data: null, error: 'Female count must be a number' });
     return
   }
 
@@ -153,7 +147,6 @@ export const createRide = async (req: Request, res: Response) => {
         }
       },
       peopleCount,
-      femaleCount,
       capacity,
       earliestDeparture: new Date(earliestDeparture),
       latestDeparture: new Date(latestDeparture),

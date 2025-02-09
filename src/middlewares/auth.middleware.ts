@@ -15,7 +15,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
   }
 
   let payload = await verifyAccessToken(accessToken);
-
+  
   if (!payload) {
     payload = await verifyRefreshToken(refreshToken);
 

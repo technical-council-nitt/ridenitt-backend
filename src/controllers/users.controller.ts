@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { prisma } from '../prisma';
-import bcrypt from 'bcrypt';
 
 export const getUser = async (req: Request, res: Response) => {
   const userId = req.userId!;
@@ -8,6 +7,14 @@ export const getUser = async (req: Request, res: Response) => {
   const user = await prisma.user.findUnique({
     where: {
       id: userId
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phoneNumber: true,
+      gender: true,
+      address: true
     }
   });
 
@@ -19,9 +26,9 @@ export const getUser = async (req: Request, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const { name, gender, address, password, confirmPassword } = req.body;
+  const { name, gender, address } = req.body;
 
-  if (!name || !gender || !address || !password || !confirmPassword || typeof name !== 'string' || typeof gender !== 'string' || typeof address !== 'string' || typeof password !== 'string' || typeof confirmPassword !== 'string') {
+  if (!name || !gender || !address || typeof name !== 'string' || typeof gender !== 'string' || typeof address !== 'string') {
     res.status(400).json({
       data: null,
       error: "Invalid Body"
@@ -30,17 +37,6 @@ export const updateUser = async (req: Request, res: Response) => {
     return;
   }
 
-  if (password !== confirmPassword) {
-    res.status(400).json({
-      data: null,
-      error: "Password and Confirm Password do not match"
-    })
-
-    return;
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-
   await prisma.user.update({
     where: {
       id: userId
@@ -48,8 +44,7 @@ export const updateUser = async (req: Request, res: Response) => {
     data: {
       name,
       gender: gender.toUpperCase() as any, //MALE or FEMALE
-      address,
-      password: hashedPassword
+      address
     }
   });
 
