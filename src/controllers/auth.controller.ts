@@ -8,6 +8,7 @@ const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_
   logLevel: process.env.NODE_ENV === 'production' ? undefined : 'debug'
 });
 
+//TODO: Replace phone number otp instead of email password login method
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
@@ -54,6 +55,16 @@ export const login = async (req: Request, res: Response) => {
   })
 }
 
+export const logout = async (req: Request, res: Response) => {
+  res.clearCookie('access-token');
+  res.clearCookie('refresh-token');
+
+  res.json({
+    data: null,
+    error: null
+  })
+}
+
 export const sendOtp = async (req: Request, res: Response) => {
   const { phoneNumber } = req.body
 
@@ -75,8 +86,6 @@ export const sendOtp = async (req: Request, res: Response) => {
         channel: "sms"
       })
 
-    console.log(status)
-
     res.json({
       data: null,
       error: null
@@ -89,16 +98,6 @@ export const sendOtp = async (req: Request, res: Response) => {
       error: 'Failed to send OTP'
     })
   }
-}
-
-export const logout = async (req: Request, res: Response) => {
-  res.clearCookie('access-token');
-  res.clearCookie('refresh-token');
-
-  res.json({
-    data: null,
-    error: null
-  })
 }
 
 export const verifyOtp = async (req: Request, res: Response) => {
@@ -126,6 +125,14 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
       return
     }
+    if (!email || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+      res.status(400).json({
+        data: null,
+        error: 'Invalid email'
+      });
+
+      return;
+    }
 
     if (
       !givenOtp
@@ -141,6 +148,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
     const user = await prisma.user.findUnique({
       where: {
+        email,
         phoneNumber
       }
     })
@@ -163,8 +171,6 @@ export const verifyOtp = async (req: Request, res: Response) => {
           code: givenOtp
         })
 
-      console.log(verificationCheck)
-
       if (verificationCheck.status !== 'approved') {
         res.status(404).json({
           data: null,
@@ -180,6 +186,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
       await prisma.user.update({
         where: {
+          email,
           phoneNumber
         },
         data
@@ -193,19 +200,10 @@ export const verifyOtp = async (req: Request, res: Response) => {
       if (user) {
         res.status(400).json({
           data: null,
-          error: 'Please Login'
+          error: 'Email already exists'
         })
 
         return
-      }
-
-      if (!email || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
-        res.status(400).json({
-          data: null,
-          error: 'Invalid email'
-        });
-
-        return;
       }
 
       if (!gender) {
@@ -245,6 +243,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
       const newUser = await prisma.user.upsert({
         where: {
+          email,
           phoneNumber,
         },
         update: data,
@@ -260,11 +259,13 @@ export const verifyOtp = async (req: Request, res: Response) => {
       res.cookie('access-token', accessToken, {
         httpOnly: false,
         secure: process.env.NODE_ENV === 'production' ? false : true,
+        expires: new Date(Date.now() + 1000 * 60 * 60)
       })
 
       res.cookie('refresh-token', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production' ? false : true,
+        expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7)
       })
 
       res.json({

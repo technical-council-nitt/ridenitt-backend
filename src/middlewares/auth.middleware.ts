@@ -32,7 +32,8 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
 
     res.cookie("access-token", newAccessToken, {
       httpOnly: false,
-      secure: process.env.NODE_ENV === "production"
+      secure: process.env.NODE_ENV === "production",
+      expires: new Date(Date.now() + 1000 * 60 * 60)
     });
   }
 

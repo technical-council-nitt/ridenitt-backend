@@ -7,7 +7,7 @@ import invitesRouter from "./routes/invites.route";
 import { loggerMiddleware } from "./middlewares/logger.middleware";
 import suggestionsRouter from "./routes/suggestions.route";
 import geocodingRouter from "./routes/geocoding.routes";
-import notifsRouter from "./routes/notifications.controller";
+import notifsRouter from "./routes/notifications.routes";
 
 const router = Router()
 

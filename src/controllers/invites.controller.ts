@@ -12,21 +12,25 @@ export const getInvites = async (req: Request, res: Response) => {
     }
   })
 
-  if (!currentRide) {
-    res.status(400).json({
-      data: null,
-      error: 'You do not have an active ride'
-    });
-
-    return;
-  }
-
-  const acceptedInvites = await prisma.invite.findMany({
-    where: {
-      receiverRideId: currentRide.id,
-      status: InviteStatus.ACCEPTED
-    },
+  const invites = await prisma.invite.findMany({
+    where: (currentRide) ? { receiverRideId: currentRide.id } : { senderId: userId },
     include: {
+      receiverRide: {
+        include: {
+          stops: true,
+          owner: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          _count: {
+            select: {
+              participants: true
+            }
+          }
+        }
+      },
       sender: {
         select: {
           id: true,
@@ -37,27 +41,15 @@ export const getInvites = async (req: Request, res: Response) => {
     }
   })
 
-  const otherInvites = await prisma.invite.findMany({
-    where: {
-      receiverRideId: currentRide.id,
-      status: {
-        in: [InviteStatus.PENDING, InviteStatus.DECLINED]
-      }
-    },
-    include: {
-      sender: {
-        select: {
-          id: true,
-          name: true
-        }
-      }
-    }
-  });
-
   res.json({
-    data: acceptedInvites.concat(otherInvites as any),
+    data: invites.map((invite: any) => {
+      if (invite.status !== InviteStatus.ACCEPTED) invite.sender.phoneNumber = ""
+      invite.participantsCount = invite.receiverRide._count.participants
+      delete invite.receiverRide._count
+      return invite;
+    }),
     error: null
-  });
+  })
 }
 
 export const sendInvite = async (req: Request, res: Response) => {
@@ -92,6 +84,13 @@ export const sendInvite = async (req: Request, res: Response) => {
   const ride = await prisma.ride.findFirst({
     where: {
       id: receiverRideId
+    },
+    include: {
+      receivedInvites: {
+        where: {
+          senderId: userId
+        }
+      }
     }
   })
 
@@ -106,6 +105,13 @@ export const sendInvite = async (req: Request, res: Response) => {
     res.status(400).json({
       data: null,
       error: 'Ride is already ' + ride.status.toLowerCase()
+    });
+
+    return;
+  } else if (ride.receivedInvites.length > 0) {
+    res.status(400).json({
+      data: null,
+      error: 'You already sent an invite to this ride'
     });
 
     return;
@@ -146,6 +152,7 @@ export const acceptInvite = async (req: Request, res: Response) => {
       sender: {
         select: {
           id: true,
+          name: true,
           currentRideId: true
         }
       }
@@ -173,8 +180,10 @@ export const acceptInvite = async (req: Request, res: Response) => {
       id: invite.receiverRideId
     },
     include: {
+      participants: true,
       owner: {
         select: {
+          name: true,
           id: true
         }
       }
@@ -223,13 +232,27 @@ export const acceptInvite = async (req: Request, res: Response) => {
       }
     })
 
-    await tx.user.update({
+    await tx.ride.update({
       where: {
-        id: invite.senderId
+        id: invite.receiverRideId
       },
       data: {
-        currentRideId: invite.receiverRideId
+        participants: {
+          connect: {
+            id: invite.senderId
+          }
+        }
       }
+    })
+
+    await tx.notification.createMany({
+      data: ride.participants.map(participant => ({
+        receiverId: participant.id,
+        message: `${invite.sender.name} joined the ride by ${ride.owner.name}`,
+      })).concat({
+        receiverId: invite.sender.id,
+        message: `Your invite to the ride by ${ride.owner.name} was accepted`
+      })
     })
   })
 
@@ -295,6 +318,7 @@ export const declineInvite = async (req: Request, res: Response) => {
     include: {
       owner: {
         select: {
+          name: true,
           id: true
         }
       }
@@ -336,6 +360,13 @@ export const declineInvite = async (req: Request, res: Response) => {
       },
       data: {
         currentRideId: null
+      }
+    })
+
+    await tx.notification.create({
+      data: {
+        receiverId: invite.senderId,
+        message: `Your invite to the ride by ${ride.owner.name} was declined. Reason: ${reason}`
       }
     })
   })

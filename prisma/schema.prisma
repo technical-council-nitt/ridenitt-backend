@@ -38,7 +38,7 @@ enum InviteStatus {
 
 model User {
   id            String  @id @default(cuid())
-  phoneNumber   String  @unique
+  phoneNumber   String
   email         String  @unique
   name          String
   passwordHash  String

@@ -51,18 +51,17 @@ export const getRides = async (req: Request, res: Response) => {
       ownerId: userId
     },
     include: {
-      receivedInvites: {
-        where: {
-          status: InviteStatus.ACCEPTED
-        },
-        include: {
-          sender: {
-            select: {
-              id: true,
-              name: true,
-              phoneNumber: true //Accepted so reveal phone number
-            }
-          }
+      owner: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
+      participants: {
+        select: {
+          id: true,
+          name: true,
+          phoneNumber: true
         }
       },
       stops: true
@@ -150,7 +149,7 @@ export const createRide = async (req: Request, res: Response) => {
       capacity,
       earliestDeparture: new Date(earliestDeparture),
       latestDeparture: new Date(latestDeparture),
-      vehicleType, //TODO: validate vehicleType
+      vehicleType: vehicleType.toUpperCase(), //TODO: validate vehicleType
       stops: {
         createMany: {
           data: stops.map((stop: any) => ({
@@ -200,34 +199,21 @@ export const cancelRide = async (req: Request, res: Response) => {
   }
 
   await prisma.$transaction(async tx => {
-    const pendingOrAcceptedInvites = await tx.invite.updateManyAndReturn({
+    const acceptedInvites = await tx.invite.updateManyAndReturn({
       where: {
         receiverRideId: ride.id,
-        status: {
-          in: [InviteStatus.PENDING, InviteStatus.ACCEPTED]
-        }
+        status: InviteStatus.ACCEPTED
       },
       data: {
         declineReason: 'Ride cancelled',
         status: InviteStatus.DECLINED
-      },
-      select: {
-        senderId: true,
-        status: true
       }
-    })
-
-    await tx.notification.createMany({
-      data: pendingOrAcceptedInvites.map(invite => ({
-        receiverId: invite.senderId,
-        message: `${ride.owner.name} cancelled the ride. Reason: ${reason}`,
-      }))
     })
 
     await tx.user.updateMany({
       where: {
         id: {
-          in: pendingOrAcceptedInvites.filter(inv => inv.status === InviteStatus.ACCEPTED).map(invite => invite.senderId)
+          in: acceptedInvites.map(invite => invite.senderId)
         }
       },
       data: {
@@ -235,12 +221,39 @@ export const cancelRide = async (req: Request, res: Response) => {
       }
     })
 
+    const pendingInvites = await tx.invite.updateManyAndReturn({
+      where: {
+        receiverRideId: ride.id,
+        status: InviteStatus.PENDING
+      },
+      data: {
+        declineReason: 'Ride cancelled',
+        status: InviteStatus.DECLINED
+      }
+    })
+
+    await tx.notification.createMany({
+      data: pendingInvites
+        .map(pi => ({
+          receiverId: pi.senderId,
+          message: `Your invite was declined by ${ride.owner.name} as the ride was cancelled. Reason: ${reason}`
+        })).concat(acceptedInvites.map(ai => ({
+          receiverId: ai.senderId,
+          message: `Your active ride was cancelled by ${ride.owner.name}. Reason: ${reason}`
+        })))
+    })
+
     await prisma.ride.update({
       where: {
         id: ride.id
       },
       data: {
-        status: RideStatus.CANCELLED
+        status: RideStatus.CANCELLED,
+        owner: {
+          update: {
+            currentRideId: null
+          }
+        }
       }
     })
   })
