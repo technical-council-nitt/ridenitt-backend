@@ -21,6 +21,11 @@ export const getSuggestions = async (req: Request, res: Response) => {
           senderId: userId
         },
         take: 1
+      },
+      participants: {
+        select: {
+          id: true
+        }
       }
     },
     orderBy: {

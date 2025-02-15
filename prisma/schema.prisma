@@ -38,9 +38,8 @@ enum InviteStatus {
 
 model User {
   id            String  @id @default(cuid())
-  phoneNumber   String
-  email         String  @unique
-  name          String
+  phoneNumber   String  //TODO: @unique
+  name          String  @unique
   passwordHash  String
   gender        Gender
   address       String?

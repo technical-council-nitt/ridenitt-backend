@@ -8,13 +8,8 @@ export const getUser = async (req: Request, res: Response) => {
     where: {
       id: userId
     },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phoneNumber: true,
-      gender: true,
-      address: true
+    omit: {
+      passwordHash: true
     }
   });
 

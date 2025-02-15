@@ -10,12 +10,12 @@ const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_
 
 //TODO: Replace phone number otp instead of email password login method
 export const login = async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+  const { name, password } = req.body;
 
-  if (!email || !password) {
+  if (!name || !password) {
     res.status(400).json({
       data: null,
-      error: 'Please provide email and password'
+      error: 'Please provide name and password'
     });
 
     return;
@@ -23,14 +23,14 @@ export const login = async (req: Request, res: Response) => {
 
   const user = await prisma.user.findUnique({
     where: {
-      email
+      name
     }
   })
 
   if (!user || !bcrypt.compareSync(password, user.passwordHash!)) {
     res.status(404).json({
       data: null,
-      error: 'Invalid email or password'
+      error: 'Invalid name or password'
     });
 
     return;
@@ -78,7 +78,7 @@ export const sendOtp = async (req: Request, res: Response) => {
   }
 
   try {
-    const status = await twilioClient.verify.v2
+    await twilioClient.verify.v2
       .services(process.env.TWILIO_SERVICE_SID!)
       .verifications
       .create({
@@ -105,7 +105,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
     const isReset = (req.query.reset as string) === "true";
 
-    const { phoneNumber, otp: givenOtp, name, email, password, gender } = req.body;
+    const { phoneNumber, otp: givenOtp, name, password, gender } = req.body;
 
     if (!password || password.length < 8) {
       res.status(400).json({
@@ -125,14 +125,6 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
       return
     }
-    if (!email || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
-      res.status(400).json({
-        data: null,
-        error: 'Invalid email'
-      });
-
-      return;
-    }
 
     if (
       !givenOtp
@@ -148,7 +140,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
     const user = await prisma.user.findUnique({
       where: {
-        email,
+        name,
         phoneNumber
       }
     })
@@ -186,7 +178,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
       await prisma.user.update({
         where: {
-          email,
+          name,
           phoneNumber
         },
         data
@@ -223,8 +215,6 @@ export const verifyOtp = async (req: Request, res: Response) => {
           code: givenOtp
         })
 
-      console.log(verificationCheck)
-
       if (verificationCheck.status !== 'approved') {
         res.status(404).json({
           data: null,
@@ -237,20 +227,16 @@ export const verifyOtp = async (req: Request, res: Response) => {
       const data = {
         gender: gender.toUpperCase(),
         name,
-        email,
+        phoneNumber,
         passwordHash: bcrypt.hashSync(password, 10)
       }
 
       const newUser = await prisma.user.upsert({
         where: {
-          email,
-          phoneNumber,
+          name,
         },
         update: data,
-        create: {
-          phoneNumber,
-          ...data
-        }
+        create: data
       })
 
       const accessToken = await createAccessToken(newUser.id);
@@ -273,8 +259,18 @@ export const verifyOtp = async (req: Request, res: Response) => {
         error: null
       })
     }
-  } catch (e) {
+  } catch (e: any) {
+    if (e.status === 404) {
+      res.status(404).json({
+        data: null,
+        error: 'Invalid OTP'
+      })
+      
+      return
+    }
+
     console.log(e)
+
     res.status(500).json({
       data: null,
       error: 'Failed to verify OTP'
