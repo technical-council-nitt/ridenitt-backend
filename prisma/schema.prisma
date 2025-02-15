@@ -75,6 +75,7 @@ model Invite {
   receiverRideId String
   status         InviteStatus @default(PENDING)
   declineReason  String?
+  createdAt      DateTime     @default(now())
 
   sender       User @relation(name: "sent_invs", fields: [senderId], references: [id])
   receiverRide Ride @relation(fields: [receiverRideId], references: [id])

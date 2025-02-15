@@ -14,6 +14,9 @@ export const getInvites = async (req: Request, res: Response) => {
 
   const invites = await prisma.invite.findMany({
     where: (currentRide) ? { receiverRideId: currentRide.id } : { senderId: userId },
+    orderBy: {
+      createdAt: 'desc'
+    },
     include: {
       receiverRide: {
         include: {
@@ -24,9 +27,11 @@ export const getInvites = async (req: Request, res: Response) => {
               name: true
             }
           },
-          _count: {
+          participants: {
             select: {
-              participants: true
+              id: true,
+              name: true,
+              phoneNumber: true
             }
           }
         }
@@ -34,8 +39,7 @@ export const getInvites = async (req: Request, res: Response) => {
       sender: {
         select: {
           id: true,
-          name: true,
-          phoneNumber: true
+          name: true
         }
       }
     }
@@ -43,9 +47,6 @@ export const getInvites = async (req: Request, res: Response) => {
 
   res.json({
     data: invites.map((invite: any) => {
-      if (invite.status !== InviteStatus.ACCEPTED) invite.sender.phoneNumber = ""
-      invite.participantsCount = invite.receiverRide._count.participants
-      delete invite.receiverRide._count
       return invite;
     }),
     error: null

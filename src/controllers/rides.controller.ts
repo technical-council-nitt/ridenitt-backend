@@ -50,6 +50,9 @@ export const getRides = async (req: Request, res: Response) => {
     where: {
       ownerId: userId
     },
+    orderBy: {
+      createdAt: 'desc'
+    },
     include: {
       owner: {
         select: {
@@ -57,11 +60,18 @@ export const getRides = async (req: Request, res: Response) => {
           name: true
         }
       },
-      participants: {
+      receivedInvites: {
+        where: {
+          status: InviteStatus.ACCEPTED
+        },
         select: {
-          id: true,
-          name: true,
-          phoneNumber: true
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              phoneNumber: true
+            }
+          }
         }
       },
       stops: true
@@ -69,7 +79,11 @@ export const getRides = async (req: Request, res: Response) => {
   });
 
   res.json({
-    data: rides,
+    data: rides.map((r: any) => {
+      r.participants = r.receivedInvites.map((ri: any) => ri.sender);
+      delete r.receivedInvites;
+      return r;
+    }),
     error: null
   });
 }
