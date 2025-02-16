@@ -141,7 +141,8 @@ export const verifyOtp = async (req: Request, res: Response) => {
     const user = await prisma.user.findUnique({
       where: {
         name,
-        phoneNumber
+        // phoneNumber
+        // TODO: Uncomment above in production
       }
     })
 
@@ -192,7 +193,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
       if (user) {
         res.status(400).json({
           data: null,
-          error: 'Email already exists'
+          error: 'User already exists'
         })
 
         return

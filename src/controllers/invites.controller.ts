@@ -12,43 +12,57 @@ export const getInvites = async (req: Request, res: Response) => {
     }
   })
 
-  const invites = await prisma.invite.findMany({
-    where: (currentRide) ? { receiverRideId: currentRide.id } : { senderId: userId },
+  const include = {
+    receiverRide: {
+      include: {
+        stops: true,
+        owner: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        participants: {
+          select: {
+            id: true,
+            name: true,
+            gender: true,
+            phoneNumber: true
+          }
+        }
+      }
+    },
+    sender: {
+      select: {
+        id: true,
+        name: true,
+      }
+    }
+  };
+
+  const sentInvites = await prisma.invite.findMany({
+    where: {
+      senderId: userId
+    },
     orderBy: {
       createdAt: 'desc'
     },
-    include: {
-      receiverRide: {
-        include: {
-          stops: true,
-          owner: {
-            select: {
-              id: true,
-              name: true
-            }
-          },
-          participants: {
-            select: {
-              id: true,
-              name: true,
-              phoneNumber: true
-            }
-          }
-        }
-      },
-      sender: {
-        select: {
-          id: true,
-          name: true
-        }
-      }
-    }
+    include
   })
 
+  const receivedInvites = currentRide ? await prisma.invite.findMany({
+    where: { receiverRideId: currentRide.id },
+    orderBy: {
+      createdAt: 'desc'
+    },
+    include
+  }) : []
+
   res.json({
-    data: invites.map((invite: any) => {
-      return invite;
-    }),
+    data: {
+      sent: sentInvites,
+      received: receivedInvites
+    },
     error: null
   })
 }
@@ -300,6 +314,9 @@ export const declineInvite = async (req: Request, res: Response) => {
   const invite = await prisma.invite.findFirst({
     where: {
       id: inviteId
+    },
+    include: {
+      sender: true
     }
   })
 
@@ -353,16 +370,18 @@ export const declineInvite = async (req: Request, res: Response) => {
       }
     })
 
-    //if the ride owner is removing the user from the ride, then remove the currentRideId from the user 
-    await tx.user.update({
-      where: {
-        id: invite.senderId,
-        currentRideId: invite.receiverRideId
-      },
-      data: {
-        currentRideId: null
-      }
-    })
+    if (invite.sender.currentRideId === invite.receiverRideId) {
+      //if the ride owner is removing the user from the ride, then remove the currentRideId from the user 
+      await tx.user.update({
+        where: {
+          id: invite.senderId,
+          currentRideId: invite.receiverRideId
+        },
+        data: {
+          currentRideId: null
+        }
+      })
+    }
 
     await tx.notification.create({
       data: {

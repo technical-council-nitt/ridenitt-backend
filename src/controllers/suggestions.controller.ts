@@ -6,7 +6,10 @@ export const getSuggestions = async (req: Request, res: Response) => {
 
   const rides = await prisma.ride.findMany({
     where: {
-      status: 'PENDING'
+      status: 'PENDING',
+      ownerId: {
+        not: userId
+      }
     },
     include: {
       owner: {
