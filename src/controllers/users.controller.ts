@@ -23,7 +23,7 @@ export const updateUser = async (req: Request, res: Response) => {
   const userId = req.userId!;
   const { name, gender, address } = req.body;
 
-  if (!name || !gender || !address || typeof name !== 'string' || typeof gender !== 'string' || typeof address !== 'string') {
+  if (!name || !gender || typeof name !== 'string' || typeof gender !== 'string' || typeof address !== 'string') {
     res.status(400).json({
       data: null,
       error: "Invalid Body"

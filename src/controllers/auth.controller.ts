@@ -100,9 +100,89 @@ export const sendOtp = async (req: Request, res: Response) => {
   }
 }
 
+export const updatePh = async (req: Request, res: Response) => {
+  const userId = req.userId!;
+
+  if (!userId) {
+    res.status(401).json({
+      data: null,
+      error: 'Please Login'
+    });
+
+    return;
+  }
+
+  try {
+    const { phoneNumber, otp } = req.body;
+
+    if (!phoneNumber || !/^\+91\d{10}$/.test(phoneNumber)) {
+      res.status(400).json({
+        data: null,
+        error: 'Invalid phone number'
+      });
+
+      return;
+    } else if (!otp || otp.length !== 6) {
+      res.status(400).json({
+        data: null,
+        error: 'Invalid OTP'
+      });
+
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId
+      }
+    })
+
+    if (!user) {
+      res.status(404).json({
+        data: null,
+        error: 'User not found'
+      });
+
+      return;
+    }
+
+    const verificationCheck = await twilioClient.verify.v2
+      .services(process.env.TWILIO_SERVICE_SID!)
+      .verificationChecks
+      .create({
+        to: phoneNumber,
+        code: otp
+      })
+
+    if (verificationCheck.status !== 'approved') {
+      res.status(404).json({
+        data: null,
+        error: 'Invalid OTP'
+      });
+
+      return;
+    }
+
+    await prisma.user.update({
+      where: {
+        id: user.id
+      },
+      data: {
+        phoneNumber
+      }
+    })
+  } catch (e) {
+    console.error(e);
+
+    res.status(500).json({
+      data: null,
+      error: 'Failed to update phone'
+    })
+  }
+}
+
 export const verifyOtp = async (req: Request, res: Response) => {
   try {
-
     const isReset = (req.query.reset as string) === "true";
 
     const { phoneNumber, otp: givenOtp, name, password, gender } = req.body;
@@ -266,7 +346,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
         data: null,
         error: 'Invalid OTP'
       })
-      
+
       return
     }
 
