@@ -1,12 +1,8 @@
 import { Request, Response } from 'express';
 import { prisma } from '../prisma';
 import { createAccessToken, createRefreshToken } from '../services/auth.service';
-import twilio from "twilio"
 import bcrypt from 'bcryptjs';
-
-const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!, {
-  logLevel: process.env.NODE_ENV === 'production' ? undefined : 'debug'
-});
+import { twilioClient } from './twilioClient';
 
 //TODO: Replace phone number otp instead of email password login method
 export const login = async (req: Request, res: Response) => {
@@ -96,87 +92,6 @@ export const sendOtp = async (req: Request, res: Response) => {
     res.status(500).json({
       data: null,
       error: 'Failed to send OTP'
-    })
-  }
-}
-
-export const updatePh = async (req: Request, res: Response) => {
-  const userId = req.userId!;
-
-  if (!userId) {
-    res.status(401).json({
-      data: null,
-      error: 'Please Login'
-    });
-
-    return;
-  }
-
-  try {
-    const { phoneNumber, otp } = req.body;
-
-    if (!phoneNumber || !/^\+91\d{10}$/.test(phoneNumber)) {
-      res.status(400).json({
-        data: null,
-        error: 'Invalid phone number'
-      });
-
-      return;
-    } else if (!otp || otp.length !== 6) {
-      res.status(400).json({
-        data: null,
-        error: 'Invalid OTP'
-      });
-
-      return;
-    }
-
-    const user = await prisma.user.findUnique({
-      where: {
-        id: userId
-      }
-    })
-
-    if (!user) {
-      res.status(404).json({
-        data: null,
-        error: 'User not found'
-      });
-
-      return;
-    }
-
-    const verificationCheck = await twilioClient.verify.v2
-      .services(process.env.TWILIO_SERVICE_SID!)
-      .verificationChecks
-      .create({
-        to: phoneNumber,
-        code: otp
-      })
-
-    if (verificationCheck.status !== 'approved') {
-      res.status(404).json({
-        data: null,
-        error: 'Invalid OTP'
-      });
-
-      return;
-    }
-
-    await prisma.user.update({
-      where: {
-        id: user.id
-      },
-      data: {
-        phoneNumber
-      }
-    })
-  } catch (e) {
-    console.error(e);
-
-    res.status(500).json({
-      data: null,
-      error: 'Failed to update phone'
     })
   }
 }
