@@ -15,7 +15,7 @@ enum Gender {
 enum Vehicle {
   CAR
   AUTO
-  TAXI
+  SUV
 }
 
 enum NotificationStatus {
@@ -38,14 +38,13 @@ enum InviteStatus {
 
 model User {
   id            String  @id @default(cuid())
-  phoneNumber   String  //TODO: @unique
-  name          String  @unique
+  phoneNumber   String  @unique
+  name          String
   passwordHash  String
   gender        Gender
   address       String?
-  currentRideId String?
-  currentRide   Ride?   @relation(name: "current_ride", fields: [currentRideId], references: [id])
 
+  activeRides   Ride[]         @relation(name: "active_rides")
   rides         Ride[]         @relation(name: "all_rides")
   sentInvites   Invite[]       @relation(name: "sent_invs")
   notifications Notification[]
@@ -57,13 +56,13 @@ model Ride {
   status            RideStatus @default(PENDING)
   vehicleType       Vehicle
   peopleCount       Int
-  capacity          Int
+  prefersGender     Gender?
   ownerId           String
   earliestDeparture DateTime
   latestDeparture   DateTime
 
   owner           User     @relation(name: "all_rides", fields: [ownerId], references: [id])
-  participants    User[]   @relation(name: "current_ride")
+  participants    User[]   @relation(name: "active_rides")
   stops           Stop[]
   receivedInvites Invite[]
 }
@@ -81,10 +80,10 @@ model Invite {
 }
 
 model Stop {
-  id   String  @id @default(cuid())
-  lat  Float
-  lon  Float
-  name String?
+  id   String @id @default(cuid())
+  // lat  Float
+  // lon  Float
+  name String
 
   rideId String
   ride   Ride   @relation(fields: [rideId], references: [id])

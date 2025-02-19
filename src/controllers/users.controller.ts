@@ -11,11 +11,30 @@ export const getUser = async (req: Request, res: Response) => {
     },
     omit: {
       passwordHash: true
+    },
+    include: {
+      activeRides: {
+        select: {
+          id: true
+        }
+      }
     }
   });
 
+  if (!user) {
+    res.status(404).json({
+      data: null,
+      error: 'User not found'
+    });
+
+    return;
+  }
+
   res.json({
-    data: user,
+    data: {
+      ...user,
+      activeRides: user.activeRides.map(r => r.id)
+    },
     error: null
   });
 }

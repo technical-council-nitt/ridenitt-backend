@@ -94,10 +94,10 @@ export const createRide = async (req: Request, res: Response) => {
   const {
     stops,
     peopleCount,
-    capacity,
     earliestDeparture,
     vehicleType,
     latestDeparture,
+    prefersGender
   } = req.body;
 
   if (!Array.isArray(stops)) {
@@ -105,13 +105,23 @@ export const createRide = async (req: Request, res: Response) => {
     return
   }
 
-  if (typeof peopleCount !== 'number') {
+  if (typeof prefersGender !== 'string') {
+    res.status(400).json({ data: null, error: 'Preferred Gender must be a string' });
+    return
+  }
+
+  if (typeof peopleCount !== 'number' || isNaN(peopleCount)) {
     res.status(400).json({ data: null, error: 'People count must be a number' });
     return
   }
 
-  if (typeof capacity !== 'number') {
-    res.status(400).json({ data: null, error: 'Capacity must be a number' });
+  if (typeof vehicleType !== 'string' || !vehicleType || ["CAR", "AUTO", "SUV"].indexOf(vehicleType.toUpperCase()) === -1) {
+    res.status(400).json({ data: null, error: 'Please provide Vehicle type' });
+    return
+  }
+
+  if (peopleCount < 1) {
+    res.status(400).json({ data: null, error: 'People count must be at least 1' });
     return
   }
 
@@ -135,51 +145,41 @@ export const createRide = async (req: Request, res: Response) => {
     return
   }
 
-  const existingRide = await prisma.ride.findFirst({
-    where: {
-      ownerId: userId,
-      status: RideStatus.PENDING
-    }
-  })
-
-  if (existingRide) {
-    res.status(400).json({
-      data: null,
-      error: 'You already have an active ride'
-    })
-
-    return
+  if (stops[0].name === stops[stops.length - 1].name) {
+    res.status(400).json({ data: null, error: 'Stops must be different' })
   }
 
-  const ride = await prisma.ride.create({
-    data: {
-      ownerId: userId,
-      participants: {
-        connect: {
-          id: userId
-        }
-      },
-      peopleCount,
-      capacity,
-      earliestDeparture: new Date(earliestDeparture),
-      latestDeparture: new Date(latestDeparture),
-      vehicleType: vehicleType.toUpperCase(), //TODO: validate vehicleType
-      stops: {
-        createMany: {
-          data: stops.map((stop: any) => ({
-            lat: stop.lat,
-            lon: stop.lon,
-            name: stop.name
-          }))
+  try {
+    const ride = await prisma.ride.create({
+      data: {
+        ownerId: userId,
+        participants: {
+          connect: {
+            id: userId
+          }
+        },
+        prefersGender: (prefersGender || null) as any,
+        peopleCount,
+        earliestDeparture: new Date(earliestDeparture),
+        latestDeparture: new Date(latestDeparture),
+        vehicleType: vehicleType as any, //TODO: validate vehicleType
+        stops: {
+          createMany: {
+            data: stops.map((stop: any) => ({
+              name: stop.name
+            }))
+          }
         }
       }
-    }
-  });
-
-  res.json({
-    data: ride,
-    error: null
-  });
+    });
+  
+    res.json({
+      data: ride,
+      error: null
+    });
+  } catch (e) {
+    res.status(500).json({ data: null, error: 'Failed to create ride' });
+  }
 }
 
 export const cancelRide = async (req: Request, res: Response) => {
@@ -224,14 +224,14 @@ export const cancelRide = async (req: Request, res: Response) => {
       }
     })
 
-    await tx.user.updateMany({
+    await tx.ride.update({
       where: {
-        id: {
-          in: acceptedInvites.map(invite => invite.senderId)
-        }
+        id: ride.id
       },
       data: {
-        currentRideId: null
+        participants: {
+          disconnect: acceptedInvites.map(ai => ({ id: ai.senderId }))
+        }
       }
     })
 
@@ -263,9 +263,9 @@ export const cancelRide = async (req: Request, res: Response) => {
       },
       data: {
         status: RideStatus.CANCELLED,
-        owner: {
-          update: {
-            currentRideId: null
+        participants: {
+          disconnect: {
+            id: userId
           }
         }
       }

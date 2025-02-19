@@ -78,10 +78,10 @@ export const sendInvite = async (req: Request, res: Response) => {
     }
   })
 
-  if (!user || user.currentRideId !== null) {
+  if (!user) {
     res.status(400).json({
       data: null,
-      error: 'You already joined a ride'
+      error: 'User not found'
     });
 
     return;
@@ -168,9 +168,9 @@ export const acceptInvite = async (req: Request, res: Response) => {
         select: {
           id: true,
           name: true,
-          currentRideId: true
         }
-      }
+      },
+      receiverRide: true
     }
   })
 
@@ -178,13 +178,6 @@ export const acceptInvite = async (req: Request, res: Response) => {
     res.status(400).json({
       data: null,
       error: 'Invite not found'
-    });
-
-    return;
-  } else if (invite.sender.currentRideId !== null) {
-    res.status(400).json({
-      data: null,
-      error: 'User already joined in a ride'
     });
 
     return;
@@ -316,7 +309,16 @@ export const declineInvite = async (req: Request, res: Response) => {
       id: inviteId
     },
     include: {
-      sender: true
+      sender: true,
+      receiverRide: {
+        select: {
+          participants: {
+            select: {
+              id: true
+            }
+          }
+        }
+      }
     }
   })
 
@@ -370,15 +372,18 @@ export const declineInvite = async (req: Request, res: Response) => {
       }
     })
 
-    if (invite.sender.currentRideId === invite.receiverRideId) {
+    if (invite.receiverRide.participants.map(u => u.id).includes(invite.senderId)) {
       //if the ride owner is removing the user from the ride, then remove the currentRideId from the user 
       await tx.user.update({
         where: {
-          id: invite.senderId,
-          currentRideId: invite.receiverRideId
+          id: invite.senderId
         },
         data: {
-          currentRideId: null
+          activeRides: {
+            disconnect: {
+              id: invite.receiverRideId
+            }
+          }
         }
       })
     }

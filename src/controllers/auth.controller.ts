@@ -6,12 +6,19 @@ import { twilioClient } from './twilioClient';
 
 //TODO: Replace phone number otp instead of email password login method
 export const login = async (req: Request, res: Response) => {
-  const { name, password } = req.body;
+  const { phoneNumber, password } = req.body;
 
-  if (!name || !password) {
+  if (!phoneNumber || !password) {
     res.status(400).json({
       data: null,
-      error: 'Please provide name and password'
+      error: 'Please provide phone number and password'
+    });
+
+    return;
+  } else if (!/^\+91\d{10}$/.test(phoneNumber)) {
+    res.status(400).json({
+      data: null,
+      error: 'Invalid phone number'
     });
 
     return;
@@ -19,7 +26,7 @@ export const login = async (req: Request, res: Response) => {
 
   const user = await prisma.user.findUnique({
     where: {
-      name
+      phoneNumber
     }
   })
 
@@ -109,7 +116,15 @@ export const verifyOtp = async (req: Request, res: Response) => {
       });
 
       return;
+    } else if (!/^[A-Za-z0-9]+$/.test(password)){
+      res.status(400).json({
+        data: null,
+        error: 'Password must be alphanumeric'
+      });
+
+      return;
     }
+
     const passwordHash = bcrypt.hashSync(password, 10);
 
     if (!phoneNumber || !/^\+91\d{10}$/.test(phoneNumber)) {
@@ -135,9 +150,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
     const user = await prisma.user.findUnique({
       where: {
-        name,
-        // phoneNumber
-        // TODO: Uncomment above in production
+        phoneNumber
       }
     })
 
@@ -229,7 +242,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
       const newUser = await prisma.user.upsert({
         where: {
-          name,
+          phoneNumber
         },
         update: data,
         create: data
@@ -260,6 +273,13 @@ export const verifyOtp = async (req: Request, res: Response) => {
       res.status(404).json({
         data: null,
         error: 'Invalid OTP'
+      })
+
+      return
+    } else if (e.status === 429) {
+      res.status(429).json({
+        data: null,
+        error: 'Maximum attempts reached. Please try again in 10 minutes'
       })
 
       return
