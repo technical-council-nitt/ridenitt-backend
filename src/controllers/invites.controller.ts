@@ -5,13 +5,6 @@ import { InviteStatus, RideStatus } from '@prisma/client';
 export const getInvites = async (req: Request, res: Response) => {
   const userId = req.userId!;
 
-  const currentRide = await prisma.ride.findFirst({
-    where: {
-      ownerId: userId,
-      status: 'PENDING'
-    }
-  })
-
   const include = {
     receiverRide: {
       include: {
@@ -19,15 +12,15 @@ export const getInvites = async (req: Request, res: Response) => {
         owner: {
           select: {
             id: true,
-            name: true
+            name: true,
+            phoneNumber: true
           }
         },
         participants: {
           select: {
             id: true,
             name: true,
-            gender: true,
-            phoneNumber: true
+            gender: true
           }
         }
       }
@@ -36,6 +29,7 @@ export const getInvites = async (req: Request, res: Response) => {
       select: {
         id: true,
         name: true,
+        phoneNumber: true
       }
     }
   };
@@ -50,13 +44,17 @@ export const getInvites = async (req: Request, res: Response) => {
     include
   })
 
-  const receivedInvites = currentRide ? await prisma.invite.findMany({
-    where: { receiverRideId: currentRide.id },
+  const receivedInvites = await prisma.invite.findMany({
+    where: {
+      receiverRide: {
+        ownerId: userId
+      }
+    },
     orderBy: {
       createdAt: 'desc'
     },
     include
-  }) : []
+  })
 
   res.json({
     data: {
@@ -123,14 +121,16 @@ export const sendInvite = async (req: Request, res: Response) => {
     });
 
     return;
-  } else if (ride.receivedInvites.length > 0) {
-    res.status(400).json({
-      data: null,
-      error: 'You already sent an invite to this ride'
-    });
-
-    return;
   }
+  // else if (ride.receivedInvites.length > 0) {
+  //   res.status(400).json({
+  //     data: null,
+  //     error: 'You already sent an invite to this ride'
+  //   });
+
+  //   return;
+  // }
+  //TODO
 
   await prisma.invite.create({
     data: {
@@ -302,7 +302,13 @@ export const declineInvite = async (req: Request, res: Response) => {
     include: {
       sender: true,
       receiverRide: {
-        select: {
+        include: {
+          owner: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
           participants: {
             select: {
               id: true
@@ -322,35 +328,25 @@ export const declineInvite = async (req: Request, res: Response) => {
     return;
   }
 
-  const ride = await prisma.ride.findFirst({
-    where: {
-      id: invite.receiverRideId
-    },
-    include: {
-      owner: {
-        select: {
-          name: true,
-          id: true
-        }
-      }
-    }
-  })
-
-  if (!ride) {
+  const ride = invite.receiverRide
+  
+  if (invite.senderId !== userId && ride.owner.id !== userId) {
     res.status(400).json({
       data: null,
-      error: 'Ride not found'
+      error: 'You cannot decline this invite'
     });
 
     return;
-  } else if (ride.owner.id !== userId) {
+  } else if (ride.status !== RideStatus.PENDING) {
     res.status(400).json({
       data: null,
-      error: 'You are not the owner of this ride'
+      error: 'Ride is already ' + ride.status.toLowerCase()
     });
 
-    return;
+    return
   }
+
+  const isSender = invite.senderId === userId
 
   await prisma.$transaction(async tx => {
     await tx.invite.update({
@@ -358,7 +354,7 @@ export const declineInvite = async (req: Request, res: Response) => {
         id: invite.id
       },
       data: {
-        declineReason: reason,
+        declineReason: (isSender ? "Left: " : "" ) + reason,
         status: InviteStatus.DECLINED
       }
     })
@@ -379,12 +375,21 @@ export const declineInvite = async (req: Request, res: Response) => {
       })
     }
 
-    await tx.notification.create({
-      data: {
-        receiverId: invite.senderId,
-        message: `Your invite to the ride by ${ride.owner.name} was declined. Reason: ${reason}`
-      }
-    })
+    if (isSender) {
+      await tx.notification.create({
+        data: {
+          receiverId: invite.receiverRide.owner.id,
+          message: `${invite.sender.name} left your ride`
+        }
+      })
+    } else {
+      await tx.notification.create({
+        data: {
+          receiverId: invite.senderId,
+          message: `Your invite to the ride by ${ride.owner.name} was declined. Reason: ${reason}`
+        }
+      })
+    }
   })
 
   res.json({

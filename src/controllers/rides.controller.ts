@@ -71,6 +71,7 @@ export const getRides = async (req: Request, res: Response) => {
           name: true
         }
       },
+      participants: true,
       receivedInvites: {
         where: {
           status: InviteStatus.ACCEPTED
@@ -90,11 +91,7 @@ export const getRides = async (req: Request, res: Response) => {
   })
 
   res.json({
-    data: rides.map((r: any) => {
-      r.participants = r.receivedInvites.map((ri: any) => ri.sender);
-      delete r.receivedInvites;
-      return r;
-    }),
+    data: rides,
     error: null
   });
 }
@@ -173,7 +170,7 @@ export const createRide = async (req: Request, res: Response) => {
         peopleCount,
         earliestDeparture: new Date(earliestDeparture),
         latestDeparture: new Date(latestDeparture),
-        vehicleType: vehicleType as any, //TODO: validate vehicleType
+        vehicleType: vehicleType.toUpperCase() as any,
         stops: {
           createMany: {
             data: stops.map((stop: any) => ({
@@ -189,6 +186,7 @@ export const createRide = async (req: Request, res: Response) => {
       error: null
     });
   } catch (e) {
+    console.error(e);
     res.status(500).json({ data: null, error: 'Failed to create ride' });
   }
 }
@@ -235,17 +233,6 @@ export const cancelRide = async (req: Request, res: Response) => {
       }
     })
 
-    await tx.ride.update({
-      where: {
-        id: ride.id
-      },
-      data: {
-        participants: {
-          disconnect: acceptedInvites.map(ai => ({ id: ai.senderId }))
-        }
-      }
-    })
-
     const pendingInvites = await tx.invite.updateManyAndReturn({
       where: {
         receiverRideId: ride.id,
@@ -273,12 +260,7 @@ export const cancelRide = async (req: Request, res: Response) => {
         id: ride.id
       },
       data: {
-        status: RideStatus.CANCELLED,
-        participants: {
-          disconnect: {
-            id: userId
-          }
-        }
+        status: RideStatus.CANCELLED
       }
     })
   })
