@@ -122,15 +122,14 @@ export const sendInvite = async (req: Request, res: Response) => {
 
     return;
   }
-  // else if (ride.receivedInvites.length > 0) {
-  //   res.status(400).json({
-  //     data: null,
-  //     error: 'You already sent an invite to this ride'
-  //   });
+  else if (ride.receivedInvites.length > 0) {
+    res.status(400).json({
+      data: null,
+      error: 'You already sent an invite to this ride'
+    });
 
-  //   return;
-  // }
-  //TODO
+    return;
+  }
 
   await prisma.invite.create({
     data: {

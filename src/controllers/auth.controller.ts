@@ -4,7 +4,6 @@ import { createAccessToken, createRefreshToken } from '../services/auth.service'
 import bcrypt from 'bcryptjs';
 import { twilioClient } from './twilioClient';
 
-//TODO: Replace phone number otp instead of email password login method
 export const login = async (req: Request, res: Response) => {
   const { phoneNumber, password } = req.body;
 
