@@ -14,6 +14,9 @@ export const getUser = async (req: Request, res: Response) => {
     },
     include: {
       activeRides: {
+        where: {
+          status: 'PENDING'
+        },
         select: {
           id: true
         }

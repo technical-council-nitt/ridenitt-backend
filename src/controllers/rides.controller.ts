@@ -48,7 +48,18 @@ export const getRides = async (req: Request, res: Response) => {
 
   const rides = await prisma.ride.findMany({
     where: {
-      ownerId: userId
+      OR: [
+        {
+          ownerId: userId
+        },
+        {
+          participants: {
+            some: {
+              id: userId
+            }
+          }
+        }
+      ]
     },
     orderBy: {
       createdAt: 'desc'
@@ -76,7 +87,7 @@ export const getRides = async (req: Request, res: Response) => {
       },
       stops: true
     }
-  });
+  })
 
   res.json({
     data: rides.map((r: any) => {
@@ -172,7 +183,7 @@ export const createRide = async (req: Request, res: Response) => {
         }
       }
     });
-  
+
     res.json({
       data: ride,
       error: null

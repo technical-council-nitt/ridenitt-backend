@@ -222,15 +222,6 @@ export const acceptInvite = async (req: Request, res: Response) => {
   }
 
   await prisma.$transaction(async tx => {
-    await tx.invite.updateMany({
-      where: {
-        senderId: invite.senderId,
-      },
-      data: {
-        status: InviteStatus.DECLINED
-      }
-    })
-
     await tx.invite.update({
       where: {
         id: invite.id
