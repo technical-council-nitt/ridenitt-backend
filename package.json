@@ -4,8 +4,9 @@
   "description": "Please checkout `prisma/schema.prisma`",
   "main": "index.js",
   "scripts": {
-    "start": "npx prisma generate && tsx src/server.ts",
-    "dev": "tsx --watch src/server.ts"
+    "start": "node dist/server.js",
+    "build": "prisma generate && tsc",
+    "dev": "tsx --watch server.ts"
   },
   "keywords": [],
   "author": "",
