@@ -253,13 +253,15 @@ export const verifyOtp = async (req: Request, res: Response) => {
       res.cookie('access-token', accessToken, {
         httpOnly: false,
         secure: process.env.NODE_ENV === 'production' ? false : true,
-        expires: new Date(Date.now() + 1000 * 60 * 60)
+        expires: new Date(Date.now() + 1000 * 60 * 60),
+        maxAge: 1000 * 60 * 60
       })
 
       res.cookie('refresh-token', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production' ? false : true,
-        expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7)
+        expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
+        maxAge: 1000 * 60 * 60 * 24 * 7
       })
 
       res.json({
