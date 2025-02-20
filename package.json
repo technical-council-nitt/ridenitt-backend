@@ -4,9 +4,9 @@
   "description": "Please checkout `prisma/schema.prisma`",
   "main": "index.js",
   "scripts": {
-    "start": "node dist/server.js",
+    "start": "node dist/index.js",
     "build": "prisma generate && tsc",
-    "dev": "tsx --watch server.ts"
+    "dev": "tsx --watch index.ts"
   },
   "keywords": [],
   "author": "",
