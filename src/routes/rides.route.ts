@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { cancelRide, createRide, getCurrentRide, getRides } from "../controllers/rides.controller";
+import { cancelRide, completeRide, createRide, getRides } from "../controllers/rides.controller";
 
 const ridesRouter = Router();
 
 ridesRouter.get('/', getRides)
 ridesRouter.post('/', createRide)
-ridesRouter.get("/current", getCurrentRide)
-ridesRouter.delete('/current', cancelRide)
+ridesRouter.delete('/:rideId', cancelRide)
+ridesRouter.post('/:rideId', completeRide)
 
 export default ridesRouter;

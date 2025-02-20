@@ -35,8 +35,8 @@ export const getSuggestions = async (req: Request, res: Response) => {
       createdAt: 'desc'
     }
   })
-  
-  const out : any = rides.map((ride: any) => {
+
+  const out = rides.map((ride: any) => {
     ride.myInvite = ride.receivedInvites.length > 0 ? ride.receivedInvites[0] : null;
     delete ride.receivedInvites;
     return ride;

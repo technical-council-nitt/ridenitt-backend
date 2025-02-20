@@ -2,47 +2,6 @@ import { Request, Response } from 'express';
 import { prisma } from '../prisma';
 import { InviteStatus, RideStatus } from '@prisma/client';
 
-export const getCurrentRide = async (req: Request, res: Response) => {
-  const userId = req.userId!;
-
-  const ride = await prisma.ride.findFirst({
-    where: {
-      participants: {
-        some: {
-          id: userId
-        }
-      },
-      status: RideStatus.PENDING
-    },
-    include: {
-      owner: {
-        select: {
-          id: true,
-          name: true
-        }
-      },
-      participants: {
-        select: {
-          id: true,
-          name: true,
-          phoneNumber: true
-        }
-      },
-      stops: true
-    }
-  });
-
-  if (!ride) {
-    res.status(404).json({ error: 'Ride not found' });
-    return
-  }
-
-  res.json({
-    data: ride,
-    error: null
-  });
-}
-
 export const getRides = async (req: Request, res: Response) => {
   const userId = req.userId!;
 
@@ -193,8 +152,9 @@ export const createRide = async (req: Request, res: Response) => {
 
 export const cancelRide = async (req: Request, res: Response) => {
   const userId = req.userId!;
+  const { rideId } = req.params;
 
-  const reason = req.body.reason;
+  const { reason } = req.body;
 
   if (typeof reason !== 'string') {
     res.status(400).json({ data: null, error: 'Reason must be a string' });
@@ -208,8 +168,7 @@ export const cancelRide = async (req: Request, res: Response) => {
 
   const ride = await prisma.ride.findFirst({
     where: {
-      ownerId: userId,
-      status: RideStatus.PENDING
+      id: rideId
     },
     include: {
       owner: true
@@ -218,6 +177,9 @@ export const cancelRide = async (req: Request, res: Response) => {
 
   if (!ride) {
     res.status(404).json({ error: 'Ride not found' });
+    return
+  } else if (ride.ownerId !== userId) {
+    res.status(403).json({ error: 'You are not the owner of this ride' });
     return
   }
 
@@ -262,6 +224,59 @@ export const cancelRide = async (req: Request, res: Response) => {
       data: {
         status: RideStatus.CANCELLED
       }
+    })
+  })
+
+  res.json({
+    data: null,
+    error: null
+  });
+}
+
+export const completeRide = async (req: Request, res: Response) => {
+  const userId = req.userId!;
+  const { rideId } = req.params;
+
+  const ride = await prisma.ride.findFirst({
+    where: {
+      id: rideId
+    },
+    include: {
+      participants: {
+        select: {
+          id: true
+        }
+      },
+      owner: true,
+    }
+  });
+
+  if (!ride) {
+    res.status(404).json({ error: 'Ride not found' });
+    return
+  } else if (ride.ownerId !== userId) {
+    res.status(403).json({ error: 'You are not the owner of this ride' });
+    return
+  } else if (ride.status !== RideStatus.PENDING) {
+    res.status(400).json({ error: 'Ride is already ' + ride.status.toLowerCase() });
+    return
+  }
+
+  await prisma.$transaction(async tx => {
+    await tx.ride.update({
+      where: {
+        id: ride.id
+      },
+      data: {
+        status: RideStatus.COMPLETED
+      }
+    })
+
+    await tx.notification.createMany({
+      data: ride.participants.map(participant => ({
+        receiverId: participant.id,
+        message: `${ride.owner.name} marked the Ride as completed` //TODO: Improve message
+      }))
     })
   })
 

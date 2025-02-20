@@ -6,7 +6,6 @@ import ridesRouter from "./routes/rides.route";
 import invitesRouter from "./routes/invites.route";
 import { loggerMiddleware } from "./middlewares/logger.middleware";
 import suggestionsRouter from "./routes/suggestions.route";
-import geocodingRouter from "./routes/geocoding.routes";
 import notifsRouter from "./routes/notifications.routes";
 
 const router = Router()
@@ -22,8 +21,6 @@ router.use("/auth", authRouter)
 router.use(authMiddleware)
 
 router.use("/api/users", usersRouter)
-
-router.use("/api/autocomplete", geocodingRouter)
 
 router.use("/api/rides", ridesRouter)
 

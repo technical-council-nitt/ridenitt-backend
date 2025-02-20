@@ -32,7 +32,7 @@ export const login = async (req: Request, res: Response) => {
   if (!user || !bcrypt.compareSync(password, user.passwordHash!)) {
     res.status(404).json({
       data: null,
-      error: 'Invalid name or password'
+      error: 'Wrong phonenumber or password'
     });
 
     return;

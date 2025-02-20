@@ -58,8 +58,14 @@ export const getInvites = async (req: Request, res: Response) => {
 
   res.json({
     data: {
-      sent: sentInvites,
-      received: receivedInvites
+      sent: sentInvites.map(i => {
+        if (i.status !== InviteStatus.ACCEPTED) i.receiverRide.owner.phoneNumber = "+91 9xxxx xxxxx"
+        return i
+      }),
+      received: receivedInvites.map(i => {
+        if (i.status !== InviteStatus.ACCEPTED) i.sender.phoneNumber = "+91 9xxxx xxxxx"
+        return i
+      })
     },
     error: null
   })
@@ -378,7 +384,7 @@ export const declineInvite = async (req: Request, res: Response) => {
       await tx.notification.create({
         data: {
           receiverId: invite.receiverRide.owner.id,
-          message: `${invite.sender.name} left your ride`
+          message: `${invite.sender.name} left your ride. Reason: ${reason}`
         }
       })
     } else {

@@ -44,9 +44,9 @@ export const getUser = async (req: Request, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const { name, gender, address } = req.body;
+  const { name, gender } = req.body;
 
-  if (!name || !gender || typeof name !== 'string' || typeof gender !== 'string' || typeof address !== 'string') {
+  if (!name || !gender || typeof name !== 'string' || typeof gender !== 'string') {
     res.status(400).json({
       data: null,
       error: "Invalid Body"
@@ -62,7 +62,6 @@ export const updateUser = async (req: Request, res: Response) => {
     data: {
       name,
       gender: gender.toUpperCase() as any, //MALE or FEMALE
-      address
     }
   });
 
@@ -148,12 +147,28 @@ export const updatePh = async (req: Request, res: Response) => {
       data: null,
       error: null
     })
-  } catch (e) {
+  } catch (e: any) {
+    if (e.status === 404) {
+      res.status(404).json({
+        data: null,
+        error: 'Invalid OTP'
+      })
+
+      return
+    } else if (e.status === 429) {
+      res.status(429).json({
+        data: null,
+        error: 'Maximum attempts reached. Please try again in 10 minutes'
+      })
+
+      return
+    }
+
     console.error(e);
 
     res.status(500).json({
       data: null,
-      error: 'Failed to update phone'
+      error: 'Failed to update phone number'
     })
   }
 }
