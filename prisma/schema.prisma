@@ -37,12 +37,11 @@ enum InviteStatus {
 }
 
 model User {
-  id            String  @id @default(cuid())
-  phoneNumber   String  @unique
-  name          String
-  passwordHash  String
-  gender        Gender
-  address       String?
+  id          String  @id @default(cuid())
+  email       String  @unique
+  name        String
+  gender      Gender?
+  phoneNumber String?
 
   activeRides   Ride[]         @relation(name: "active_rides")
   rides         Ride[]         @relation(name: "all_rides")

@@ -114,6 +114,7 @@ export const createRide = async (req: Request, res: Response) => {
 
   if (stops[0].name === stops[stops.length - 1].name) {
     res.status(400).json({ data: null, error: 'Stops must be different' })
+    return
   }
 
   try {

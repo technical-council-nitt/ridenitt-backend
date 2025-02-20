@@ -3,11 +3,10 @@ import { jwtVerify, SignJWT } from 'jose';
 export const createAccessToken = async (userId: string) => {
   const secretKey = new TextEncoder().encode(process.env.ACCESS_TOKEN_SECRET!);
 
-  const payload : Payload = {
+  const payload: Payload = {
     userId,
     iss: 'RideNITT'
   }
-
   const token = await new SignJWT(payload as any)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -20,7 +19,7 @@ export const createAccessToken = async (userId: string) => {
 export const createRefreshToken = async (userId: string) => {
   const secretKey = new TextEncoder().encode(process.env.REFRESH_TOKEN_SECRET!);
 
-  const payload : Payload = {
+  const payload: Payload = {
     userId,
     iss: 'RideNITT'
   }
