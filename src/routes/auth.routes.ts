@@ -13,7 +13,7 @@ authRouter.delete("/logout", logout)
 
 authRouter.get("/google", googleAuth)
 
-authRouter.get("/auth/callback", googleAuthCallback, afterOAuthLogin);
+authRouter.get("/callback", googleAuthCallback, afterOAuthLogin);
 
 authRouter.get("/signout", signOut);
 

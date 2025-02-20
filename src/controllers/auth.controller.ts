@@ -22,7 +22,7 @@ passport.use(
 
 export const googleAuth = passport.authenticate("google", {
   session: false,
-  scope: ["profile", "email"]
+  scope: ["profile", "email", "https://www.googleapis.com/auth/user.phonenumbers.read"]
 });
 
 export const googleAuthCallback = passport.authenticate('google', {
