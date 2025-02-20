@@ -162,8 +162,8 @@ export const cancelRide = async (req: Request, res: Response) => {
     return
   }
 
-  if (reason.length < 10) {
-    res.status(400).json({ data: null, error: 'Reason must be at least 10 characters' });
+  if (reason.length < 2) {
+    res.status(400).json({ data: null, error: 'Reason must be at least 2 characters' });
     return
   }
 

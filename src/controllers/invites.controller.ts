@@ -5,66 +5,92 @@ import { InviteStatus, RideStatus } from '@prisma/client';
 export const getInvites = async (req: Request, res: Response) => {
   const userId = req.userId!;
 
-  const include = {
-    receiverRide: {
-      include: {
-        stops: true,
-        owner: {
-          select: {
-            id: true,
-            name: true,
-            phoneNumber: true
-          }
-        },
-        participants: {
-          select: {
-            id: true,
-            name: true,
-            gender: true
+  //TODO: too much data is being transferred
+  
+  const recv = await prisma.ride.findMany({
+    where: {
+      ownerId: userId
+    },
+    orderBy: {
+      createdAt: 'desc'
+    },
+    include: {
+      stops: true,
+      participants: {
+        select: {
+          id: true
+        }
+      },
+      receivedInvites: {
+        include: {
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              phoneNumber: true
+            }
           }
         }
       }
-    },
-    sender: {
-      select: {
-        id: true,
-        name: true,
-        phoneNumber: true
-      }
     }
-  };
+  })
 
-  const sentInvites = await prisma.invite.findMany({
+  const sent = await prisma.invite.findMany({
     where: {
       senderId: userId
     },
     orderBy: {
       createdAt: 'desc'
     },
-    include
-  })
-
-  const receivedInvites = await prisma.invite.findMany({
-    where: {
+    include: {
       receiverRide: {
-        ownerId: userId
+        include: {
+          stops: true,
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              phoneNumber: true
+            }
+          },
+          participants: {
+            select: {
+              id: true,
+              name: true,
+              gender: true
+            }
+          }
+        }
+      },
+      sender: {
+        select: {
+          id: true,
+          name: true,
+          phoneNumber: true
+        }
       }
-    },
-    orderBy: {
-      createdAt: 'desc'
-    },
-    include
+    }
   })
 
   res.json({
     data: {
-      sent: sentInvites.map(i => {
+      sent: sent.map(i => {
         if (i.status !== InviteStatus.ACCEPTED) i.receiverRide.owner.phoneNumber = "+91 9xxxx xxxxx"
         return i
       }),
-      received: receivedInvites.map(i => {
-        if (i.status !== InviteStatus.ACCEPTED) i.sender.phoneNumber = "+91 9xxxx xxxxx"
-        return i
+      received: recv.map(r => {
+        const invites = r.receivedInvites.map(i => {
+          if (i.status !== InviteStatus.ACCEPTED) i.sender.phoneNumber = "+91 9xxxx xxxxx"
+          return i
+        })
+
+        //@ts-ignore
+        delete r.receivedInvites
+
+        return {
+          ride: r,
+          invites
+        }
       })
     },
     error: null
@@ -282,10 +308,10 @@ export const declineInvite = async (req: Request, res: Response) => {
     });
 
     return;
-  } else if (reason.length < 10) {
+  } else if (reason.length < 2) {
     res.status(400).json({
       data: null,
-      error: 'Reason must be at least 10 characters long'
+      error: 'Reason must be at least 2 characters long'
     });
 
     return;
@@ -334,7 +360,7 @@ export const declineInvite = async (req: Request, res: Response) => {
   }
 
   const ride = invite.receiverRide
-  
+
   if (invite.senderId !== userId && ride.owner.id !== userId) {
     res.status(400).json({
       data: null,
@@ -359,7 +385,7 @@ export const declineInvite = async (req: Request, res: Response) => {
         id: invite.id
       },
       data: {
-        declineReason: (isSender ? "Left: " : "" ) + reason,
+        declineReason: (isSender ? "Left: " : "") + reason,
         status: InviteStatus.DECLINED
       }
     })
