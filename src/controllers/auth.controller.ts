@@ -1,8 +1,65 @@
-import { Request, Response } from 'express';
-import { prisma } from '../prisma';
-import { createAccessToken, createRefreshToken } from '../services/auth.service';
+import { Request, Response } from "express";
+import { createAccessToken, createRefreshToken } from "../services/auth.service";
+import passport from "passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import { User } from "@prisma/client";
 import bcrypt from 'bcryptjs';
 import { twilioClient } from './twilioClient';
+import { prisma } from "../prisma";
+
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      callbackURL: "/auth/callback"
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      console.log(profile)
+    }
+  )
+);
+
+export const googleAuth = passport.authenticate("google", {
+  session: false,
+  scope: ["profile", "email"]
+});
+
+export const googleAuthCallback = passport.authenticate('google', {
+  session: false,
+  failureRedirect: '/login'
+});
+
+export const afterOAuthLogin = (req: Request, res: Response) => {
+  const user = req.user as User;
+
+  if (!user) {
+    res.redirect("/login");
+    return;
+  }
+
+  const refreshToken = createRefreshToken(user.id);
+  const accessToken = createAccessToken(user.id);
+
+  res.cookie("refresh-token", refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production"
+  });
+
+  res.cookie("access-token", accessToken, {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production"
+  });
+
+  res.redirect("/profile");
+}
+
+export const signOut = (req: Request, res: Response) => {
+  res.clearCookie("refresh-token");
+  res.clearCookie("access-token");
+  
+  res.redirect("/login");
+};
 
 export const login = async (req: Request, res: Response) => {
   const { phoneNumber, password } = req.body;
