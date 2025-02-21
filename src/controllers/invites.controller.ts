@@ -18,7 +18,7 @@ export const getInvites = async (req: Request, res: Response) => {
       stops: true,
       participants: {
         select: {
-          id: true
+          id: true,
         }
       },
       receivedInvites: {
@@ -31,7 +31,7 @@ export const getInvites = async (req: Request, res: Response) => {
             }
           }
         }
-      }
+      },
     }
   })
 
@@ -57,16 +57,10 @@ export const getInvites = async (req: Request, res: Response) => {
             select: {
               id: true,
               name: true,
-              gender: true
+              gender: true,
+              phoneNumber: true
             }
           }
-        }
-      },
-      sender: {
-        select: {
-          id: true,
-          name: true,
-          phoneNumber: true
         }
       }
     }
@@ -75,7 +69,13 @@ export const getInvites = async (req: Request, res: Response) => {
   res.json({
     data: {
       sent: sent.map(i => {
-        if (i.status !== InviteStatus.ACCEPTED) i.receiverRide.owner.phoneNumber = "+91 9xxxx xxxxx"
+        if (i.status !== InviteStatus.ACCEPTED) {
+          i.receiverRide.owner.phoneNumber = "+91 9xxxx xxxxx"
+          i.receiverRide.participants = i.receiverRide.participants.map(p => {
+            p.phoneNumber = "+91 9xxxx xxxxx"
+            return p
+          })
+        }
         return i
       }),
       received: recv.map(r => {
