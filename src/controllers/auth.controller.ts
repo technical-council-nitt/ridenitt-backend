@@ -54,12 +54,14 @@ export const afterOAuthLogin = async (req: Request, res: Response) => {
 
   res.cookie("refresh-token", refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production"
+    secure: process.env.NODE_ENV === "production",
+    expires: new Date(Date.now() + 1000*60*60*24*28)
   });
 
   res.cookie("access-token", accessToken, {
     httpOnly: false,
-    secure: process.env.NODE_ENV === "production"
+    secure: process.env.NODE_ENV === "production",
+    expires: new Date(Date.now() + 1000*60*60)
   });
 
   if (user.gender && user.phoneNumber) {
