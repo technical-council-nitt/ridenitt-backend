@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum Vehicle {
+  CAR
+  AUTO
+  SUV
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+}
+
+enum RideStatus {
+  PENDING
+  FULL
+  COMPLETED
+  CANCELLED
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model User {
+  id            String  @id @default(cuid())
+  phoneNumber   String  @unique
+  name          String
+  passwordHash  String
+  gender        Gender
+  address       String?
+
+  activeRides   Ride[]         @relation(name: "active_rides")
+  rides         Ride[]         @relation(name: "all_rides")
+  sentInvites   Invite[]       @relation(name: "sent_invs")
+  notifications Notification[]
+}
+
+model Ride {
+  id                String     @id @default(cuid())
+  createdAt         DateTime   @default(now())
+  status            RideStatus @default(PENDING)
+  vehicleType       Vehicle
+  peopleCount       Int
+  prefersGender     Gender?
+  ownerId           String
+  earliestDeparture DateTime
+  latestDeparture   DateTime
+
+  owner           User     @relation(name: "all_rides", fields: [ownerId], references: [id])
+  participants    User[]   @relation(name: "active_rides")
+  stops           Stop[]
+  receivedInvites Invite[]
+}
+
+model Invite {
+  id             String       @id @default(cuid())
+  senderId       String
+  receiverRideId String
+  status         InviteStatus @default(PENDING)
+  declineReason  String?
+  createdAt      DateTime     @default(now())
+
+  sender       User @relation(name: "sent_invs", fields: [senderId], references: [id])
+  receiverRide Ride @relation(fields: [receiverRideId], references: [id])
+}
+
+model Stop {
+  id   String @id @default(cuid())
+  // lat  Float
+  // lon  Float
+  name String
+
+  rideId String
+  ride   Ride   @relation(fields: [rideId], references: [id])
+}
+
+model Notification {
+  id         String             @id @default(cuid())
+  createdAt  DateTime           @default(now())
+  receiverId String
+  message    String
+  status     NotificationStatus @default(UNREAD)
+
+  receiver User @relation(fields: [receiverId], references: [id])
+}
