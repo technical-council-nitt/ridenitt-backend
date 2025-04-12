@@ -1,0 +1,20 @@
+# Ignore node_modules directory
+node_modules
+
+# Ignore logs
+*.log
+
+# Ignore build directories
+dist
+build
+
+# Ignore temporary files and directories
+*.tmp
+*.swp
+*.swo
+*.bak
+
+# Ignore IDE-specific files
+.vscode
+.idea
+.vercel
