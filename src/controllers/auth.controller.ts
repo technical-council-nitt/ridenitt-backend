@@ -65,9 +65,9 @@ export const afterOAuthLogin = async (req: Request, res: Response) => {
   });
 
   if (user.gender && user.phoneNumber) {
-    res.redirect("http://localhost:5173/");
+    res.redirect("http://34.93.97.93:5173/");
   } else {
-    res.redirect("http://localhost:5173/sign-up")
+    res.redirect("http://34.93.97.93:5173/sign-up")
   }
 }
 
