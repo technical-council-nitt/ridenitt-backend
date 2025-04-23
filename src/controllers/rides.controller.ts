@@ -82,7 +82,7 @@ export const createRide = async (req: Request, res: Response) => {
     return
   }
 
-  if (typeof vehicleType !== 'string' || !vehicleType || ["CAR", "AUTO", "SUV"].indexOf(vehicleType.toUpperCase()) === -1) {
+  if (typeof vehicleType !== 'string' || !vehicleType || ["CAR", "AUTO", "BUS"].indexOf(vehicleType.toUpperCase()) === -1) {
     res.status(400).json({ data: null, error: 'Please provide Vehicle type' });
     return
   }
