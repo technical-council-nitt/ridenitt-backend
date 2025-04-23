@@ -15,7 +15,7 @@ enum Gender {
 enum Vehicle {
   CAR
   AUTO
-  SUV
+  BUS
 }
 
 enum NotificationStatus {
