@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../prisma';
 import { InviteStatus, RideStatus } from '@prisma/client';
+import moment from 'moment';
 
 export const getRides = async (req: Request, res: Response) => {
   const userId = req.userId!;
@@ -55,6 +56,7 @@ export const getRides = async (req: Request, res: Response) => {
   });
 }
 
+
 export const createRide = async (req: Request, res: Response) => {
   const userId = req.userId!;
 
@@ -67,54 +69,80 @@ export const createRide = async (req: Request, res: Response) => {
     prefersGender
   } = req.body;
 
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId
+    },
+    include: {
+      activeRides: true
+    }
+  });
+
+  if ((user?.activeRides?.length ?? 0) >= 3) {
+    res.status(400).json({ data: null, error: 'You can only have 3 active rides at a time' });
+    return;
+  }
+ 
+
   if (!Array.isArray(stops)) {
     res.status(400).json({ data: null, error: 'Stops must be an array' });
-    return
+    return;
   }
 
   if (typeof prefersGender !== 'string') {
     res.status(400).json({ data: null, error: 'Preferred Gender must be a string' });
-    return
+    return;
   }
+ 
 
   if (typeof peopleCount !== 'number' || isNaN(peopleCount)) {
     res.status(400).json({ data: null, error: 'People count must be a number' });
-    return
+    return;
   }
 
   if (typeof vehicleType !== 'string' || !vehicleType || ["CAR", "AUTO", "BUS"].indexOf(vehicleType.toUpperCase()) === -1) {
     res.status(400).json({ data: null, error: 'Please provide Vehicle type' });
-    return
+    return;
   }
 
   if (peopleCount < 1) {
     res.status(400).json({ data: null, error: 'People count must be at least 1' });
-    return
+    return;
   }
 
-  if (typeof earliestDeparture !== 'number' || isNaN(new Date(earliestDeparture).getTime())) {
-    res.status(400).json({ data: null, error: 'Earliest departure must be a valid date' });
-    return
+  // Validate the dates directly (without time conversion)
+  if (!earliestDeparture || !latestDeparture) {
+    res.status(400).json({ data: null, error: 'Departure dates must be provided' });
+    return;
   }
 
-  if (typeof latestDeparture !== 'number' || isNaN(new Date(latestDeparture).getTime())) {
-    res.status(400).json({ data: null, error: 'Latest departure must be a valid date' });
-    return
-  }
-
-  if (new Date(earliestDeparture).getTime() > new Date(latestDeparture).getTime()) {
+  if (earliestDeparture > latestDeparture) {
     res.status(400).json({ data: null, error: 'Earliest departure must be before latest departure' });
-    return
+    return;
+  }
+
+  // Convert the ISO date strings to Date objects
+  const earliestDepartureDate = new Date(earliestDeparture);
+  const latestDepartureDate = new Date(latestDeparture);
+
+  if (isNaN(earliestDepartureDate.getTime())) {
+    res.status(400).json({ data: null, error: 'Invalid earliest departure date' });
+    return;
+  }
+
+  if (isNaN(latestDepartureDate.getTime())) {
+    res.status(400).json({ data: null, error: 'Invalid latest departure date' });
+    return;
   }
 
   if (stops.length < 2) {
     res.status(400).json({ data: null, error: 'Ride must have at least two stops' });
-    return
+    return;
   }
 
   if (stops[0].name === stops[stops.length - 1].name) {
-    res.status(400).json({ data: null, error: 'Stops must be different' })
-    return
+    res.status(400).json({ data: null, error: 'Stops must be different' });
+    return;
   }
 
   try {
@@ -128,8 +156,8 @@ export const createRide = async (req: Request, res: Response) => {
         },
         prefersGender: (prefersGender || null) as any,
         peopleCount,
-        earliestDeparture: new Date(earliestDeparture),
-        latestDeparture: new Date(latestDeparture),
+        earliestDeparture: earliestDepartureDate,  // Use Date objects from the frontend
+        latestDeparture: latestDepartureDate,      // Use Date objects from the frontend
         vehicleType: vehicleType.toUpperCase() as any,
         stops: {
           createMany: {
@@ -149,7 +177,9 @@ export const createRide = async (req: Request, res: Response) => {
     console.error(e);
     res.status(500).json({ data: null, error: 'Failed to create ride' });
   }
-}
+};
+
+
 
 export const cancelRide = async (req: Request, res: Response) => {
   const userId = req.userId!;
