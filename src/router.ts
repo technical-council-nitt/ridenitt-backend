@@ -12,8 +12,8 @@ const router = Router()
 
 router.use(loggerMiddleware)
 
-router.get("/", (_, res) => {
-  res.send("Hello World!")
+router.get("/", (req,res) => {
+  res.send("Ridenitt Backend is Running!")
 })
 
 router.use("/auth", authRouter)
