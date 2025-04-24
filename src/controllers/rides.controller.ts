@@ -147,6 +147,8 @@ export const createRide = async (req: Request, res: Response) => {
     });
   } catch (e) {
     console.error(e);
+	console.error('Ride creation error:', JSON.stringify(e, null, 2));
+
     res.status(500).json({ data: null, error: 'Failed to create ride' });
   }
 }

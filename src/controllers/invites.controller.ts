@@ -135,7 +135,8 @@ export const sendInvite = async (req: Request, res: Response) => {
         where: {
           senderId: userId
         }
-      }
+      },
+      participants : true,
     }
   })
 
@@ -145,6 +146,12 @@ export const sendInvite = async (req: Request, res: Response) => {
       error: 'Ride not found'
     });
 
+    return;
+  }else if (ride.peopleCount <= ride.participants.length) {
+    res.status(400).json({
+      data: null,
+      error: 'Ride is full'
+    });
     return;
   } else if (ride.status !== RideStatus.PENDING) {
     res.status(400).json({
@@ -228,7 +235,10 @@ export const acceptInvite = async (req: Request, res: Response) => {
       }
     }
   })
-
+ if(ride){
+  console.log(ride.participants.length);
+  console.log(ride.peopleCount);
+}
   if (!ride) {
     res.status(400).json({
       data: null,
@@ -243,7 +253,13 @@ export const acceptInvite = async (req: Request, res: Response) => {
     });
 
     return;
-  } else if (ride.status !== RideStatus.PENDING) {
+  } else if(ride.peopleCount <= ride.participants.length) {
+        res.status(400).json({
+            data: null,
+            error: 'Ride is already full'
+        });
+        return;
+    } else if (ride.status !== RideStatus.PENDING) {
     res.status(400).json({
       data: null,
       error: 'Ride is already ' + ride.status.toLowerCase()
