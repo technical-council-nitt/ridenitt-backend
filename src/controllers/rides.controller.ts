@@ -77,7 +77,10 @@ export const createRide = async (req: Request, res: Response) => {
       activeRides: true
     }
   });
-
+  if(req.body.peopleCount < 2) {
+    res.status(400).json({ data: null, error: 'People limit must be at least 2' });
+    return;
+  }
   if ((user?.activeRides?.length ?? 0) >= 3) {
     res.status(400).json({ data: null, error: 'You can only have 3 active rides at a time' });
     return;

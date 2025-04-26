@@ -148,7 +148,7 @@ export const sendInvite = async (req: Request, res: Response) => {
 
     return;
   }else if (ride.peopleCount <= ride.participants.length) {
-    res.status(400).json({
+     res.status(400).json({
       data: null,
       error: 'Ride is full'
     });
@@ -258,7 +258,7 @@ export const acceptInvite = async (req: Request, res: Response) => {
             data: null,
             error: 'Ride is already full'
         });
-        return;
+       return; 
     } else if (ride.status !== RideStatus.PENDING) {
     res.status(400).json({
       data: null,
