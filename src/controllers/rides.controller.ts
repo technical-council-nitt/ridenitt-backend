@@ -4,8 +4,37 @@ import { InviteStatus, RideStatus } from '@prisma/client';
 import moment from 'moment';
 
 export const getRides = async (req: Request, res: Response) => {
-  const userId = req.userId!;
+  // Update all rides in the system that are PENDING and latestDeparture < now to COMPLETED
+  const now = new Date();
+  // Find all rides that need to be completed
+  const ridesToComplete = await prisma.ride.findMany({
+    where: {
+      status: RideStatus.PENDING,
+      latestDeparture: { lt: now }
+    },
+    include: {
+      participants: { select: { id: true } },
+      owner: { select: { id: true, name: true } }
+    }
+  });
 
+  // Update their status and send notifications
+  for (const ride of ridesToComplete) {
+    await prisma.ride.update({
+      where: { id: ride.id },
+      data: { status: RideStatus.COMPLETED }
+    });
+    // Notify all participants (including owner)
+    const allUserIds = [ride.owner.id, ...ride.participants.map(p => p.id)];
+    await prisma.notification.createMany({
+      data: allUserIds.map(uid => ({
+        receiverId: uid,
+        message: `${ride.owner.name} ride has been automatically marked as completed.`
+      }))
+    });
+  }
+
+  const userId = req.userId!;
   const rides = await prisma.ride.findMany({
     where: {
       OR: [
@@ -69,12 +98,27 @@ export const createRide = async (req: Request, res: Response) => {
     prefersGender
   } = req.body;
 
+  // Before checking active rides, update all rides for this user that are PENDING and latestDeparture < now to COMPLETED
+  const nowForActiveRides = new Date();
+  await prisma.ride.updateMany({
+    where: {
+      participants: { some: { id: userId } },
+      status: 'PENDING',
+      latestDeparture: { lt: nowForActiveRides }
+    },
+    data: { status: 'COMPLETED' }
+  });
+
+  // Now fetch the user and their active rides
   const user = await prisma.user.findUnique({
     where: {
       id: userId
     },
     include: {
-      activeRides: true
+      activeRides: {
+        where: { status: 'PENDING' },
+        select: { id: true }
+      }
     }
   });
   if(req.body.peopleCount < 2) {
@@ -147,6 +191,16 @@ export const createRide = async (req: Request, res: Response) => {
     res.status(400).json({ data: null, error: 'Stops must be different' });
     return;
   }
+
+  // Before creating a new ride, update all rides in the system that are PENDING and latestDeparture < now to COMPLETED
+  const now = new Date();
+  await prisma.ride.updateMany({
+    where: {
+      status: RideStatus.PENDING,
+      latestDeparture: { lt: now }
+    },
+    data: { status: RideStatus.COMPLETED }
+  });
 
   try {
     const ride = await prisma.ride.create({

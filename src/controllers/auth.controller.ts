@@ -14,20 +14,25 @@ passport.use(
       callbackURL: process.env.GOOGLE_OAUTH_REDIRECT_URI!
     },
     async (accessToken, refreshToken, profile, done) => {
-      const email = profile.emails![0].value;
-      const name = profile.displayName
+      try {
+        const email = profile.emails![0].value;
+        const name = profile.displayName
   
-      const user = await prisma.user.upsert({
-        where: {
-          email
-        },
-        create: {
-          email, name
-        },
-        update: {}
-      });
+        const user = await prisma.user.upsert({
+          where: {
+            email
+          },
+          create: {
+            email, name
+          },
+          update: {}
+        });
 
-      done(null, user)
+        done(null, user)
+      } catch (err) {
+        console.error('GoogleStrategy error:', err);
+        done(err, undefined);
+      }
     }
   )
 );
@@ -37,10 +42,23 @@ export const googleAuth = passport.authenticate("google", {
   scope: ["profile", "email"]
 });
 
-export const googleAuthCallback = passport.authenticate('google', {
-  session: false,
-  failureRedirect: '/login'
-});
+export const googleAuthCallback = (req: Request, res: Response, next: any) => {
+  passport.authenticate('google', {
+    session: false,
+    failureRedirect: '/login'
+  }, (err, user, info) => {
+    if (err) {
+      console.error('googleAuthCallback error:', err, info);
+      return res.status(500).send('OAuth Error: ' + (err.message || err));
+    }
+    if (!user) {
+      console.error('googleAuthCallback: No user returned', info);
+      return res.redirect('/login');
+    }
+    req.user = user;
+    next();
+  })(req, res, next);
+};
 
 export const afterOAuthLogin = async (req: Request, res: Response) => {
   const user = req.user as User;
@@ -67,7 +85,7 @@ export const afterOAuthLogin = async (req: Request, res: Response) => {
 
   if (user.gender && user.phoneNumber) {
     res.redirect(`${FRONTEND_URL}/`);
-  } else {
+  } else { 
     res.redirect(`${FRONTEND_URL}/sign-up`)
   }
 }

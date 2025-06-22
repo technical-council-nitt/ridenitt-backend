@@ -177,6 +177,14 @@ export const sendInvite = async (req: Request, res: Response) => {
     }
   })
 
+  // Send notification to the ride owner
+  await prisma.notification.create({
+    data: {
+      receiverId: ride.ownerId,
+      message: `${user.name} has sent you a ride request.`
+    }
+  })
+
   res.json({
     data: null,
     error: null
@@ -298,6 +306,9 @@ export const acceptInvite = async (req: Request, res: Response) => {
       })).concat({
         receiverId: invite.sender.id,
         message: `Your invite to the ride by ${ride.owner.name} was accepted`
+      }).concat({
+        receiverId: ride.owner.id,
+        message: `You accepted ${invite.sender.name}'s request to join your ride.`
       })
     })
   })
