@@ -73,13 +73,19 @@ export const afterOAuthLogin = async (req: Request, res: Response) => {
 
   res.cookie("refresh-token", refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+        // secure: process.env.NODE_ENV === "production",
+    secure: false, // Always false for local
+    sameSite: "lax", // Lax for local
+    // domain: undefined, // Do not set domain for localhost
     expires: new Date(Date.now() + 1000*60*60*24*28)
   });
 
   res.cookie("access-token", accessToken, {
     httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
+        // secure: process.env.NODE_ENV === "production",
+    secure: false, // Always false for local
+    sameSite: "lax", // Lax for local
+    // domain: undefined, // Do not set domain for localhost
     expires: new Date(Date.now() + 1000*60*60)
   });
 

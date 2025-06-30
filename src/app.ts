@@ -13,7 +13,7 @@ const app = express()
 
 app.use(helmet())
 app.use(cors({
-  origin: "*",
+  origin: "https://ridenittfrontend-298477500939.asia-southeast1.run.app",
   credentials: true
 }))
 app.use(express.json())
