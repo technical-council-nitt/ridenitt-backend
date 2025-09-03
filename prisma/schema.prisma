@@ -47,6 +47,7 @@ model User {
   rides         Ride[]         @relation(name: "all_rides")
   sentInvites   Invite[]       @relation(name: "sent_invs")
   notifications Notification[]
+  subscriptions Subscription[]
 }
 
 model Ride {
@@ -97,3 +98,13 @@ model Notification {
 
   receiver User @relation(fields: [receiverId], references: [id])
 }
+
+model Subscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  keys      Json     // to store p256dh + auth keys
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  createdAt DateTime @default(now())
+}
+

@@ -32,7 +32,7 @@ export const getUser = async (req: Request, res: Response) => {
   res.json({
     data: {
       ...user,
-      activeRides: user.activeRides.map(r => r.id)
+      activeRides: user.activeRides.map((r:any)=> r.id)
     },
     error: null
   });
