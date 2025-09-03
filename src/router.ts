@@ -30,4 +30,4 @@ router.use("/api/suggestions", suggestionsRouter)
 
 router.use("/api/notifications", notifsRouter)
 
-export default router;
+module.exports = router

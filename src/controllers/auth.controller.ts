@@ -5,6 +5,8 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { User } from "@prisma/client";
 import { prisma } from "../prisma";
 import dotenv from 'dotenv'
+
+dotenv.config();
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 passport.use(
   new GoogleStrategy(
