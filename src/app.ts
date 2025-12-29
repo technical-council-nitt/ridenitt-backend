@@ -4,6 +4,7 @@ import cors from "cors";
 import { config } from "dotenv";
 import cookieParser from "cookie-parser";
 import router from "./router";
+import "./services/push.service"
 
 config({
   path: ".env.local"

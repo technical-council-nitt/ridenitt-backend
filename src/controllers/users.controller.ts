@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../prisma';
+import webpush from '../services/push.service';
 
 export const getUser = async (req: Request, res: Response) => {
   const userId = req.userId!;
@@ -47,14 +48,12 @@ export const updateUser = async (req: Request, res: Response) => {
       data: null,
       error: "Invalid Body"
     })
-
     return;
   } else if (!/^\+91\d{10}$/.test(phoneNumber)) {
     res.status(400).json({
       data: null,
       error: "Invalid phone number"
     })
-
     return
   }
 
@@ -64,10 +63,14 @@ export const updateUser = async (req: Request, res: Response) => {
     },
     data: {
       name,
-      gender: gender.toUpperCase() as any, //MALE or FEMALE
+      gender: gender.toUpperCase() as any,
       phoneNumber
     }
   });
+
+
+      
+  
 
   res.json({
     data: null,
