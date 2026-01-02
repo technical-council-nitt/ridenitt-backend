@@ -3,6 +3,9 @@ import { prisma } from '../prisma';
 import { InviteStatus, RideStatus } from '@prisma/client';
 import moment from 'moment';
 
+import { sendNotification } from '../services/send.notification';
+import webpush from '../services/push.service';
+
 export const getRides = async (req: Request, res: Response) => {
   // Update all rides in the system that are PENDING and latestDeparture < now to COMPLETED
   const now = new Date();
@@ -24,6 +27,10 @@ export const getRides = async (req: Request, res: Response) => {
       where: { id: ride.id },
       data: { status: RideStatus.COMPLETED }
     });
+
+
+
+
     // Notify all participants (including owner)
     const allUserIds = [ride.owner.id, ...ride.participants.map(p => p.id)];
     await prisma.notification.createMany({
@@ -32,6 +39,8 @@ export const getRides = async (req: Request, res: Response) => {
         message: `${ride.owner.name} ride has been automatically marked as completed.`
       }))
     });
+
+
   }
 
   const userId = req.userId!;
@@ -121,7 +130,7 @@ export const createRide = async (req: Request, res: Response) => {
       }
     }
   });
-  if(req.body.peopleCount < 2) {
+  if (req.body.peopleCount < 2) {
     res.status(400).json({ data: null, error: 'People limit must be at least 2' });
     return;
   }
@@ -129,7 +138,7 @@ export const createRide = async (req: Request, res: Response) => {
     res.status(400).json({ data: null, error: 'You can only have 3 active rides at a time' });
     return;
   }
- 
+
 
   if (!Array.isArray(stops)) {
     res.status(400).json({ data: null, error: 'Stops must be an array' });
@@ -140,7 +149,7 @@ export const createRide = async (req: Request, res: Response) => {
     res.status(400).json({ data: null, error: 'Preferred Gender must be a string' });
     return;
   }
- 
+
 
   if (typeof peopleCount !== 'number' || isNaN(peopleCount)) {
     res.status(400).json({ data: null, error: 'People count must be a number' });
@@ -230,9 +239,37 @@ export const createRide = async (req: Request, res: Response) => {
       data: ride,
       error: null
     });
+
+
+
+    let AllUsers = await prisma.user.findMany({
+      where: {
+        id: {
+          not: userId,
+        }
+      },
+    });
+    console.log(AllUsers.map(u => u.name));
+
+
+
+
+    const payload = JSON.stringify({
+      title: "New Ride Available 🚗",
+      body: `${user?.name || 'A user'} created a new ride for ${stops[0].name} to ${stops[stops.length - 1].name}.`,
+      url: "/",
+      icon: "/icons/logo.png",
+      badge: "/icons/logo.png",
+    });
+
+    sendNotification(AllUsers.map(u => u.id).filter(id => id !== userId), payload);
+
+
+
+
   } catch (e) {
     console.error(e);
-	console.error('Ride creation error:', JSON.stringify(e, null, 2));
+    console.error('Ride creation error:', JSON.stringify(e, null, 2));
 
     res.status(500).json({ data: null, error: 'Failed to create ride' });
   }
@@ -255,7 +292,7 @@ export const cancelRide = async (req: Request, res: Response) => {
     res.status(400).json({ data: null, error: 'Reason must be at least 2 characters' });
     return
   }
-
+  let notifyUserIds: string[] = [];
   const ride = await prisma.ride.findFirst({
     where: {
       id: rideId
@@ -295,6 +332,9 @@ export const cancelRide = async (req: Request, res: Response) => {
         status: InviteStatus.DECLINED
       }
     })
+    notifyUserIds = [
+      ...acceptedInvites.map(ai => ai.senderId)
+    ];
 
     await tx.notification.createMany({
       data: pendingInvites
@@ -307,6 +347,8 @@ export const cancelRide = async (req: Request, res: Response) => {
         })))
     })
 
+
+
     await prisma.ride.update({
       where: {
         id: ride.id
@@ -317,11 +359,25 @@ export const cancelRide = async (req: Request, res: Response) => {
     })
   })
 
+
   res.json({
     data: null,
     error: null
   });
+
+  const payload = JSON.stringify({
+    title: "Ride Cancelled 😞",
+    body: `${ride.owner?.name || 'Ride Owner'} cancelled the ride .Reason: ${reason}`,
+    url: "/",
+    icon: "/icons/logo.png",
+      badge: "/icons/logo.png",
+  });
+
+  sendNotification(notifyUserIds, payload);
+
 }
+
+
 
 export const completeRide = async (req: Request, res: Response) => {
   const userId = req.userId!;
@@ -361,6 +417,20 @@ export const completeRide = async (req: Request, res: Response) => {
         status: RideStatus.COMPLETED
       }
     })
+    const notifyUserIds = ride.participants.map(p => p.id);
+    const uniqueUserIds = [...new Set(notifyUserIds)];
+
+
+
+    const payload = JSON.stringify({
+      title: "Ride Completed ✅",
+      body: `${ride.owner?.name || 'Ride Owner'} marked the ride as completed.`,
+      url: "/",
+      icon: "/icons/logo.png",
+      badge: "/icons/logo.png",
+    });
+
+    sendNotification(uniqueUserIds, payload);
 
     await tx.notification.createMany({
       data: ride.participants.map(participant => ({

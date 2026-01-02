@@ -97,3 +97,10 @@ model Notification {
 
   receiver User @relation(fields: [receiverId], references: [id])
 }
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String
+  p256dh    String
+  auth      String
+}

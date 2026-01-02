@@ -1,4 +1,4 @@
-import { User } from '@prisma/client';
+import { User as PrismaUser } from "@prisma/client";
 
 declare global {
   interface Payload {
@@ -7,10 +7,16 @@ declare global {
     iat?: number;
     exp?: number;
   }
-}
 
-declare module 'express-serve-static-core' {
-  interface Request {
-    userId?: string;
+  namespace Express {
+    // 👇 THIS is what Passport uses
+    interface User extends Pick<PrismaUser, "id"> {}
+
+    // Optional: if you also attach userId manually
+    interface Request {
+      userId?: string;
+    }
   }
 }
+
+export {};

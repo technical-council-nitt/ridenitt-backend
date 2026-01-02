@@ -1,12 +1,14 @@
 import { Request, Response } from 'express';
 import { prisma } from '../prisma';
 import { InviteStatus, RideStatus } from '@prisma/client';
+import webpush from '../services/push.service';
+import { sendNotification } from '../services/send.notification';
 
 export const getInvites = async (req: Request, res: Response) => {
   const userId = req.userId!;
 
   //TODO: too much data is being transferred
-  
+
   const recv = await prisma.ride.findMany({
     where: {
       ownerId: userId
@@ -136,7 +138,7 @@ export const sendInvite = async (req: Request, res: Response) => {
           senderId: userId
         }
       },
-      participants : true,
+      participants: true,
     }
   })
 
@@ -147,8 +149,8 @@ export const sendInvite = async (req: Request, res: Response) => {
     });
 
     return;
-  }else if (ride.peopleCount <= ride.participants.length) {
-     res.status(400).json({
+  } else if (ride.peopleCount <= ride.participants.length) {
+    res.status(400).json({
       data: null,
       error: 'Ride is full'
     });
@@ -176,6 +178,17 @@ export const sendInvite = async (req: Request, res: Response) => {
       receiverRideId
     }
   })
+
+  const payload = JSON.stringify({
+    title: "New Ride Invite",
+    body: `${user.name} has sent you a ride request.`,
+    icon: "/icons/logo.png",
+      badge: "/icons/logo.png",
+
+  });
+  sendNotification([ride.ownerId], payload);
+
+
 
   // Send notification to the ride owner
   await prisma.notification.create({
@@ -243,10 +256,10 @@ export const acceptInvite = async (req: Request, res: Response) => {
       }
     }
   })
- if(ride){
-  console.log(ride.participants.length);
-  console.log(ride.peopleCount);
-}
+  if (ride) {
+    console.log(ride.participants.length);
+    console.log(ride.peopleCount);
+  }
   if (!ride) {
     res.status(400).json({
       data: null,
@@ -261,13 +274,13 @@ export const acceptInvite = async (req: Request, res: Response) => {
     });
 
     return;
-  } else if(ride.peopleCount <= ride.participants.length) {
-        res.status(400).json({
-            data: null,
-            error: 'Ride is already full'
-        });
-       return; 
-    } else if (ride.status !== RideStatus.PENDING) {
+  } else if (ride.peopleCount <= ride.participants.length) {
+    res.status(400).json({
+      data: null,
+      error: 'Ride is already full'
+    });
+    return;
+  } else if (ride.status !== RideStatus.PENDING) {
     res.status(400).json({
       data: null,
       error: 'Ride is already ' + ride.status.toLowerCase()
@@ -275,7 +288,7 @@ export const acceptInvite = async (req: Request, res: Response) => {
 
     return;
   }
-
+let notifyParticipantsIds: string[] = [];
   await prisma.$transaction(async tx => {
     await tx.invite.update({
       where: {
@@ -299,159 +312,233 @@ export const acceptInvite = async (req: Request, res: Response) => {
       }
     })
 
+
     await tx.notification.createMany({
-      data: ride.participants.map(participant => ({
-        receiverId: participant.id,
-        message: `${invite.sender.name} joined the ride by ${ride.owner.name}`,
-      })).concat({
-        receiverId: invite.sender.id,
-        message: `Your invite to the ride by ${ride.owner.name} was accepted`
-      }).concat({
-        receiverId: ride.owner.id,
-        message: `You accepted ${invite.sender.name}'s request to join your ride.`
-      })
-    })
-  })
-
-  res.json({
-    data: null,
-    error: null
-  });
-}
-
-export const declineInvite = async (req: Request, res: Response) => {
-  const userId = req.userId!;
-
-  const { inviteId } = req.params;
-
-  const {
-    reason
-  } = req.body;
-
-  if (!reason) {
-    res.status(400).json({
-      data: null,
-      error: 'Reason is required'
-    });
-
-    return;
-  } else if (reason.length < 2) {
-    res.status(400).json({
-      data: null,
-      error: 'Reason must be at least 2 characters long'
-    });
-
-    return;
-  }
-
-  if (!inviteId) {
-    res.status(400).json({
-      data: null,
-      error: 'Invite id is required'
-    });
-
-    return;
-  }
-
-  const invite = await prisma.invite.findFirst({
-    where: {
-      id: inviteId
-    },
-    include: {
-      sender: true,
-      receiverRide: {
-        include: {
-          owner: {
-            select: {
-              id: true,
-              name: true
-            }
-          },
-          participants: {
-            select: {
-              id: true
-            }
-          }
-        }
-      }
-    }
-  })
-
-  if (!invite) {
-    res.status(400).json({
-      data: null,
-      error: 'Invite not found'
-    });
-
-    return;
-  }
-
-  const ride = invite.receiverRide
-
-  if (invite.senderId !== userId && ride.owner.id !== userId) {
-    res.status(400).json({
-      data: null,
-      error: 'You cannot decline this invite'
-    });
-
-    return;
-  } else if (ride.status !== RideStatus.PENDING) {
-    res.status(400).json({
-      data: null,
-      error: 'Ride is already ' + ride.status.toLowerCase()
-    });
-
-    return
-  }
-
-  const isSender = invite.senderId === userId
-
-  await prisma.$transaction(async tx => {
-    await tx.invite.update({
-      where: {
-        id: invite.id
-      },
-      data: {
-        declineReason: (isSender ? "Left: " : "") + reason,
-        status: InviteStatus.DECLINED
-      }
-    })
-
-    if (invite.receiverRide.participants.map(u => u.id).includes(invite.senderId)) {
-      //if the ride owner is removing the user from the ride, then remove the currentRideId from the user 
-      await tx.user.update({
-        where: {
-          id: invite.senderId
+      data: [
+        ...ride.participants.map(p => ({
+          receiverId: p.id,
+          message: `${invite.sender.name} joined the ride by ${ride.owner.name}`,
+        })),
+        {
+          receiverId: invite.sender.id,
+          message: `Your invite to the ride by ${ride.owner.name} was accepted`,
         },
-        data: {
-          activeRides: {
-            disconnect: {
-              id: invite.receiverRideId
-            }
-          }
-        }
-      })
-    }
+        {
+          receiverId: ride.owner.id,
+          message: `You accepted ${invite.sender.name}'s request to join your ride.`,
+        },
+      ],
+    });
 
-    if (isSender) {
-      await tx.notification.create({
-        data: {
-          receiverId: invite.receiverRide.owner.id,
-          message: `${invite.sender.name} left your ride. Reason: ${reason}`
-        }
-      })
-    } else {
-      await tx.notification.create({
-        data: {
-          receiverId: invite.senderId,
-          message: `Your invite to the ride by ${ride.owner.name} was declined. Reason: ${reason}`
-        }
-      })
-    }
+  notifyParticipantsIds = ride.participants
+  .map(p => p.id)
+  .filter(id => id !== ride.owner.id);
+   
+
   })
+   sendNotification(notifyParticipantsIds, JSON.stringify({
+      title: "Invite Accepted 🎉",
+      body: `${invite.sender.name} joined the ride by ${ride.owner.name}`,
+      url: `/requests`,
+      icon: "/icons/logo.png",
+      badge: "/icons/logo.png",
+    }));
+    sendNotification([invite.sender.id], JSON.stringify({
+      title: "Invite Accepted 🎉",
+      body: `Your invite to the ride by ${ride.owner.name} was accepted`,
+      url: `/requests`,
+      icon: "/icons/logo.png",
+      badge: "/icons/logo.png",
+    }));
+  
 
   res.json({
     data: null,
     error: null
   });
 }
+
+
+
+
+    export const declineInvite = async (req: Request, res: Response) => {
+      const userId = req.userId!;
+
+      const { inviteId } = req.params;
+
+      const {
+        reason
+      } = req.body;
+
+      if (!reason) {
+        res.status(400).json({
+          data: null,
+          error: 'Reason is required'
+        });
+
+        return;
+      } else if (reason.length < 2) {
+        res.status(400).json({
+          data: null,
+          error: 'Reason must be at least 2 characters long'
+        });
+
+        return;
+      }
+
+      if (!inviteId) {
+        res.status(400).json({
+          data: null,
+          error: 'Invite id is required'
+        });
+
+        return;
+      }
+let notifyUserIds: string[] = [];
+      const invite = await prisma.invite.findFirst({
+        where: {
+          id: inviteId
+        },
+        include: {
+          sender: true,
+          receiverRide: {
+            include: {
+              owner: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              },
+              participants: {
+                select: {
+                  id: true
+                }
+              }
+            }
+          }
+        }
+      })
+
+      if (!invite) {
+        res.status(400).json({
+          data: null,
+          error: 'Invite not found'
+        });
+
+        return;
+      }
+
+      const ride = invite.receiverRide
+
+      if (invite.senderId !== userId && ride.owner.id !== userId) {
+        res.status(400).json({
+          data: null,
+          error: 'You cannot decline this invite'
+        });
+
+        return;
+      } else if (ride.status !== RideStatus.PENDING) {
+        res.status(400).json({
+          data: null,
+          error: 'Ride is already ' + ride.status.toLowerCase()
+        });
+
+        return
+      }
+
+      const isSender = invite.senderId === userId
+
+      await prisma.$transaction(async tx => {
+        await tx.invite.update({
+          where: {
+            id: invite.id
+          },
+          data: {
+            declineReason: (isSender ? "Left: " : "") + reason,
+            status: InviteStatus.DECLINED
+          }
+        })
+
+        if (invite.receiverRide.participants.map(u => u.id).includes(invite.senderId)) {
+          //if the ride owner is removing the user from the ride, then remove the currentRideId from the user 
+          await tx.user.update({
+            where: {
+              id: invite.senderId
+            },
+            data: {
+              activeRides: {
+                disconnect: {
+                  id: invite.receiverRideId
+                }
+              }
+            }
+          })
+          notifyUserIds = [
+            ...invite.receiverRide.participants.map(p => p.id),
+            invite.sender.id,
+            invite.receiverRide.owner.id,
+          ];
+        }
+
+        if (isSender) {
+          await tx.notification.create({
+            data: {
+              receiverId: invite.receiverRide.owner.id,
+              message: `${invite.sender.name} left your ride. Reason: ${reason}`
+            }
+          })
+        } else {
+          await tx.notification.create({
+            data: {
+              receiverId: invite.senderId,
+              message: `Your invite to the ride by ${ride.owner.name} was declined. Reason: ${reason}`
+            }
+          })
+        }
+      })
+
+      res.json({
+        data: null,
+        error: null
+      });
+      let participantsIds: string[] = [];
+      participantsIds = ride.participants
+      .map(p => p.id)
+      .filter(id => id !== ride.owner.id);
+      notifyUserIds = participantsIds;
+      if (!isSender) {
+        if(notifyUserIds.includes(invite.sender.id) === false){
+          notifyUserIds.push(invite.sender.id);
+          sendNotification(notifyUserIds, JSON.stringify({
+            title: "Invite Declined ❌",
+            body: `Your invite to the ride by ${ride.owner.name} was declined. Reason: ${reason}`,
+            url: `/requests`,
+            icon: "/icons/logo.png",
+      badge: "/icons/logo.png",
+          }));
+        }
+        else{
+          sendNotification([invite.sender.id], JSON.stringify({
+            title: "Removed from the Ride 😔",
+            body: `You were removed from the ride by ${ride.owner.name}. Reason: ${reason}`,
+            url: `/requests`,
+            icon: "/icons/logo.png",
+      badge: "/icons/logo.png",
+          }));
+        }
+
+      }else{
+        notifyUserIds = notifyUserIds.filter(id => id !== invite.sender.id);
+        notifyUserIds.push(ride.owner.id);
+ sendNotification(notifyUserIds, JSON.stringify({
+        title: "Left Ride ❌",
+        body: `${invite.sender.name} left your ride. Reason: ${reason}`,
+        url: `/requests`,
+        icon: "/icons/logo.png",
+      badge: "/icons/logo.png",
+      }));
+      }
+     
+    }
+  
+
